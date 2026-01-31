@@ -22,6 +22,14 @@ const employeeNavItems = [
   { icon: Brain, label: 'Teste Comportamental', path: '/assessment' },
 ];
 
+const managerNavItems = [
+  { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
+  { icon: ClipboardCheck, label: 'Onboarding da Equipe', path: '/onboarding' },
+  { icon: UserCheck, label: 'Avaliações', path: '/evaluation' },
+  { icon: Users, label: 'Mentorias', path: '/mentoring' },
+  { icon: Brain, label: 'Perfis DISC', path: '/assessment' },
+];
+
 const hrNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: ClipboardCheck, label: 'Onboarding', path: '/onboarding' },
@@ -30,12 +38,25 @@ const hrNavItems = [
   { icon: Brain, label: 'Perfis DISC', path: '/assessment' },
 ];
 
+function getNavItems(role: string) {
+  if (role === 'hr') return hrNavItems;
+  if (role === 'manager') return managerNavItems;
+  return employeeNavItems;
+}
+
+function getRoleLabel(role: string) {
+  if (role === 'hr') return 'RH';
+  if (role === 'manager') return 'Gestor';
+  return 'Colaborador';
+}
+
 export function Sidebar() {
   const { user, logout } = useAuth();
   const { brand } = useBrand();
   const location = useLocation();
   
-  const navItems = user?.role === 'hr' ? hrNavItems : employeeNavItems;
+  const navItems = getNavItems(user?.role ?? 'employee');
+  const roleLabel = getRoleLabel(user?.role ?? 'employee');
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 sidebar-gradient border-r border-sidebar-border flex flex-col">
@@ -76,7 +97,7 @@ export function Sidebar() {
               {user?.name}
             </p>
             <p className="text-xs text-sidebar-foreground/60 truncate">
-              {user?.role === 'hr' ? 'Gestor RH' : 'Colaborador'}
+              {roleLabel}
             </p>
           </div>
         </div>
@@ -120,7 +141,7 @@ export function Sidebar() {
           <span className="font-medium text-sm">Configurações</span>
         </Link>
         <button
-          onClick={logout}
+          onClick={() => void logout()}
           className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sidebar-foreground/70 hover:bg-destructive/20 hover:text-destructive transition-all duration-200"
         >
           <LogOut className="w-5 h-5" />

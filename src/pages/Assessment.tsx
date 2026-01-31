@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { 
@@ -105,8 +104,6 @@ const discProfiles = {
 };
 
 export default function Assessment() {
-  const { user } = useAuth();
-  const isHR = user?.role === 'hr';
   const [hasCompleted, setHasCompleted] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Record<string, 'D' | 'I' | 'S' | 'C'>>({});

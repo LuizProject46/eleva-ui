@@ -23,9 +23,9 @@ const colorPresets = [
 ];
 
 export default function Settings() {
-  const { user } = useAuth();
+  const { user, isHR } = useAuth();
   const { brand, updateBrand } = useBrand();
-  const isHR = user?.role === 'hr';
+  const showBrandSettings = isHR();
   
   const [companyName, setCompanyName] = useState(brand.companyName);
   const [selectedPreset, setSelectedPreset] = useState(0);
@@ -84,8 +84,8 @@ export default function Settings() {
             </div>
           </div>
 
-          {/* Brand Settings (HR only) */}
-          {isHR && (
+          {/* Brand Settings (RH only) */}
+          {showBrandSettings && (
             <div className="card-elevated p-6">
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 rounded-lg bg-primary/10">

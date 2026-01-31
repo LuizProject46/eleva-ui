@@ -34,8 +34,8 @@ const recentEmployees = [
 ];
 
 export default function Dashboard() {
-  const { user } = useAuth();
-  const isHR = user?.role === 'hr';
+  const { user, canManageUsers, isHR } = useAuth();
+  const showTeamView = canManageUsers();
 
   return (
     <MainLayout>
@@ -46,13 +46,15 @@ export default function Dashboard() {
             Olá, {user?.name?.split(' ')[0]}! 👋
           </h1>
           <p className="text-muted-foreground mt-1">
-            {isHR 
-              ? 'Aqui está o resumo do seu time hoje.'
+            {showTeamView
+              ? isHR()
+                ? 'Aqui está o resumo do seu time hoje.'
+                : 'Acompanhe sua equipe e o progresso do time.'
               : 'Veja seu progresso e próximas atividades.'}
           </p>
         </div>
 
-        {isHR ? (
+        {showTeamView ? (
           // HR Dashboard
           <>
             {/* Stats Grid */}

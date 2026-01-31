@@ -1,16 +1,29 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth, UserRole } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useBrand } from '@/contexts/BrandContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Users, Building2, ArrowRight, Eye, EyeOff } from 'lucide-react';
 
+function getAuthErrorMessage(error: { message?: string; status?: number }): string {
+  const msg = error?.message?.toLowerCase() ?? '';
+  if (msg.includes('invalid login credentials') || msg.includes('invalid_credentials')) {
+    return 'E-mail ou senha incorretos. Verifique suas credenciais.';
+  }
+  if (msg.includes('email not confirmed')) {
+    return 'Confirme seu e-mail antes de fazer login.';
+  }
+  if (msg.includes('too many requests')) {
+    return 'Muitas tentativas. Aguarde alguns minutos e tente novamente.';
+  }
+  return 'Erro ao fazer login. Verifique suas credenciais e tente novamente.';
+}
+
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<UserRole>('employee');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -25,10 +38,10 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      await login(email, password, role);
+      await login(email, password);
       navigate('/dashboard');
     } catch (err) {
-      setError('Erro ao fazer login. Verifique suas credenciais.');
+      setError(getAuthErrorMessage(err as { message?: string; status?: number }));
     } finally {
       setIsLoading(false);
     }
@@ -102,44 +115,6 @@ export default function Login() {
             </p>
           </div>
 
-          {/* Role Selection */}
-          <div className="grid grid-cols-2 gap-3 mb-6">
-            <button
-              type="button"
-              onClick={() => setRole('employee')}
-              className={`p-4 rounded-xl border-2 transition-all duration-200 text-left ${
-                role === 'employee'
-                  ? 'border-primary bg-primary/5'
-                  : 'border-border hover:border-muted-foreground/30'
-              }`}
-            >
-              <Users className={`w-5 h-5 mb-2 ${role === 'employee' ? 'text-primary' : 'text-muted-foreground'}`} />
-              <p className={`font-medium text-sm ${role === 'employee' ? 'text-primary' : 'text-foreground'}`}>
-                Colaborador
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Acesso ao portal pessoal
-              </p>
-            </button>
-            <button
-              type="button"
-              onClick={() => setRole('hr')}
-              className={`p-4 rounded-xl border-2 transition-all duration-200 text-left ${
-                role === 'hr'
-                  ? 'border-primary bg-primary/5'
-                  : 'border-border hover:border-muted-foreground/30'
-              }`}
-            >
-              <Building2 className={`w-5 h-5 mb-2 ${role === 'hr' ? 'text-primary' : 'text-muted-foreground'}`} />
-              <p className={`font-medium text-sm ${role === 'hr' ? 'text-primary' : 'text-foreground'}`}>
-                RH / Gestor
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Painel administrativo
-              </p>
-            </button>
-          </div>
-
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
               <Label htmlFor="email">E-mail</Label>
@@ -210,13 +185,6 @@ export default function Login() {
               Recuperar acesso
             </a>
           </p>
-
-          {/* Demo hint */}
-          <div className="mt-8 p-4 bg-muted/50 rounded-xl">
-            <p className="text-xs text-muted-foreground text-center">
-              <strong>Demo:</strong> Use qualquer email/senha para testar
-            </p>
-          </div>
         </div>
       </div>
     </div>

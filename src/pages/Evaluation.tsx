@@ -92,8 +92,8 @@ const StarRating = ({ score, maxScore = 5, size = 'md', interactive = false, onC
 };
 
 export default function Evaluation() {
-  const { user } = useAuth();
-  const isHR = user?.role === 'hr';
+  const { canManageUsers, isHR } = useAuth();
+  const isTeamView = canManageUsers();
   const [evaluations] = useState(mockEvaluations);
   const [selectedEval, setSelectedEval] = useState<Evaluation | null>(evaluations[0]);
   const [isEvaluating, setIsEvaluating] = useState(false);
@@ -117,15 +117,15 @@ export default function Evaluation() {
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-3xl font-display font-bold text-foreground">
-              {isHR ? 'Avaliações de Desempenho' : 'Minhas Avaliações'}
+              {isTeamView ? 'Avaliações de Desempenho' : 'Minhas Avaliações'}
             </h1>
             <p className="text-muted-foreground mt-1">
-              {isHR 
+              {isTeamView
                 ? 'Gerencie e realize avaliações periódicas do time'
                 : 'Acompanhe seu desempenho e feedback recebido'}
             </p>
           </div>
-          {isHR && (
+          {isTeamView && (
             <Button className="gradient-hero">
               <Calendar className="w-4 h-4 mr-2" />
               Nova Avaliação
@@ -250,7 +250,7 @@ export default function Evaluation() {
                 )}
 
                 {/* Actions */}
-                {isHR && selectedEval.status === 'pending' && (
+                {isTeamView && selectedEval.status === 'pending' && (
                   <div className="mt-6 pt-6 border-t border-border flex gap-3">
                     {isEvaluating ? (
                       <>

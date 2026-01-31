@@ -76,8 +76,8 @@ const initialSteps: OnboardingStep[] = [
 ];
 
 export default function Onboarding() {
-  const { user } = useAuth();
-  const isHR = user?.role === 'hr';
+  const { canManageUsers, isHR } = useAuth();
+  const isTeamView = canManageUsers();
   const [steps, setSteps] = useState(initialSteps);
   const [selectedStep, setSelectedStep] = useState<OnboardingStep | null>(steps.find(s => s.current) || null);
 
@@ -104,15 +104,15 @@ export default function Onboarding() {
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-3xl font-display font-bold text-foreground">
-              {isHR ? 'Gerenciar Onboarding' : 'Meu Onboarding'}
+              {isTeamView ? (isHR() ? 'Gerenciar Onboarding' : 'Onboarding da Equipe') : 'Meu Onboarding'}
             </h1>
             <p className="text-muted-foreground mt-1">
-              {isHR 
+              {isTeamView
                 ? 'Acompanhe o progresso de integração dos colaboradores'
                 : 'Complete as etapas para sua integração completa'}
             </p>
           </div>
-          {isHR && (
+          {isTeamView && (
             <Button className="gradient-hero">
               <Users className="w-4 h-4 mr-2" />
               Novo Colaborador

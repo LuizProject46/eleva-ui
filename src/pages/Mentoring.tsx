@@ -77,8 +77,8 @@ const developmentGoals = [
 ];
 
 export default function Mentoring() {
-  const { user } = useAuth();
-  const isHR = user?.role === 'hr';
+  const { canManageUsers } = useAuth();
+  const isTeamView = canManageUsers();
   const [sessions] = useState(mockSessions);
   const [selectedSession, setSelectedSession] = useState<MentoringSession | null>(sessions[0]);
   const [showNewSession, setShowNewSession] = useState(false);
@@ -91,10 +91,10 @@ export default function Mentoring() {
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-3xl font-display font-bold text-foreground">
-              {isHR ? 'Programa de Mentoria' : 'Minha Mentoria'}
+              {isTeamView ? 'Programa de Mentoria' : 'Minha Mentoria'}
             </h1>
             <p className="text-muted-foreground mt-1">
-              {isHR 
+              {isTeamView
                 ? 'Gerencie as relações de mentoria do time'
                 : 'Acompanhe seu desenvolvimento profissional'}
             </p>
@@ -111,7 +111,7 @@ export default function Mentoring() {
             {/* Mentor Card */}
             <div className="card-elevated p-6">
               <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wide mb-4">
-                {isHR ? 'Mentores Ativos' : 'Seu Mentor'}
+                {isTeamView ? 'Mentores Ativos' : 'Seu Mentor'}
               </h3>
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 rounded-full gradient-hero flex items-center justify-center text-white text-xl font-bold">
