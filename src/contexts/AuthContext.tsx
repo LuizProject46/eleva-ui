@@ -1,6 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { supabase } from '@/lib/supabase';
-import type { User as SupabaseUser } from '@supabase/supabase-js';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import api from '@/lib/api';
 
 export type UserRole = 'employee' | 'manager' | 'hr';
 
@@ -27,73 +26,46 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-function mapProfileToUser(profile: { id: string; email: string; name: string; role: string; department?: string | null; position?: string | null; avatar_url?: string | null }): User {
-  return {
-    id: profile.id,
-    email: profile.email,
-    name: profile.name,
-    role: profile.role as UserRole,
-    department: profile.department ?? undefined,
-    position: profile.position ?? undefined,
-    avatar: profile.avatar_url ?? undefined,
-  };
-}
-
-async function fetchProfile(userId: string): Promise<User | null> {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('id, email, name, role, department, position, avatar_url')
-    .eq('id', userId)
-    .single();
-
-  if (error || !data) return null;
-  return mapProfileToUser(data);
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const loadUser = useCallback(async (supabaseUser: SupabaseUser) => {
-    const profile = await fetchProfile(supabaseUser.id);
-    if (profile) setUser(profile);
-    else setUser(null);
+  // Verificação de sessão ao carregar a aplicação
+  useEffect(() => {
+    checkSession();
   }, []);
 
-  useEffect(() => {
-    const initSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        await loadUser(session.user);
-      } else {
-        setUser(null);
-      }
+  const checkSession = async () => {
+    try {
+      const response = await api.get('/api/me');
+      setUser(response.data);
+    } catch (error) {
+      // Se não houver sessão válida (401), apenas define user como null
+      setUser(null);
+    } finally {
+      // SEMPRE executar para remover o loading
       setIsLoading(false);
-    };
-
-    initSession();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session?.user) {
-        await loadUser(session.user);
-      } else {
-        setUser(null);
-      }
-      setIsLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
-  }, [loadUser]);
+    }
+  };
 
   const login = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
-    if (data.user) await loadUser(data.user);
+    // Primeiro, obter o CSRF cookie
+    await api.get('/sanctum/csrf-cookie');
+    
+    // Então fazer o login
+    const response = await api.post('/api/login', { email, password });
+    setUser(response.data.user);
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
+    try {
+      await api.post('/api/logout');
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      // SEMPRE limpar o usuário, mesmo se a requisição falhar
+      setUser(null);
+    }
   };
 
   const isHR = () => user?.role === 'hr';

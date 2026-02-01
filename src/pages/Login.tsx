@@ -7,17 +7,44 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Users, Building2, ArrowRight, Eye, EyeOff } from 'lucide-react';
 
-function getAuthErrorMessage(error: { message?: string; status?: number }): string {
-  const msg = error?.message?.toLowerCase() ?? '';
-  if (msg.includes('invalid login credentials') || msg.includes('invalid_credentials')) {
+function getAuthErrorMessage(error: any): string {
+  // Laravel retorna erros de validação em response.data.errors ou response.data.message
+  if (error?.response?.data) {
+    const data = error.response.data;
+    
+    // Erros de validação do Laravel (422)
+    if (data.errors) {
+      // Pegar a primeira mensagem de erro
+      const firstError = Object.values(data.errors)[0];
+      if (Array.isArray(firstError) && firstError.length > 0) {
+        return firstError[0] as string;
+      }
+    }
+    
+    // Mensagem de erro direta
+    if (data.message) {
+      return data.message;
+    }
+  }
+  
+  // Status codes específicos
+  if (error?.response?.status === 401) {
     return 'E-mail ou senha incorretos. Verifique suas credenciais.';
   }
-  if (msg.includes('email not confirmed')) {
-    return 'Confirme seu e-mail antes de fazer login.';
-  }
-  if (msg.includes('too many requests')) {
+  
+  if (error?.response?.status === 429) {
     return 'Muitas tentativas. Aguarde alguns minutos e tente novamente.';
   }
+  
+  if (error?.response?.status === 500) {
+    return 'Erro no servidor. Tente novamente mais tarde.';
+  }
+  
+  // Erro de rede
+  if (error?.message === 'Network Error') {
+    return 'Erro de conexão. Verifique sua internet e tente novamente.';
+  }
+  
   return 'Erro ao fazer login. Verifique suas credenciais e tente novamente.';
 }
 
@@ -41,7 +68,7 @@ export default function Login() {
       await login(email, password);
       navigate('/dashboard');
     } catch (err) {
-      setError(getAuthErrorMessage(err as { message?: string; status?: number }));
+      setError(getAuthErrorMessage(err));
     } finally {
       setIsLoading(false);
     }

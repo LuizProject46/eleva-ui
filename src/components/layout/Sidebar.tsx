@@ -5,6 +5,8 @@ import {
   ClipboardCheck, 
   UserCheck, 
   Brain,
+  Award,
+  Target,
   LogOut,
   Settings,
   ChevronRight
@@ -18,6 +20,8 @@ const employeeNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: ClipboardCheck, label: 'Meu Onboarding', path: '/onboarding' },
   { icon: UserCheck, label: 'Avaliação', path: '/evaluation' },
+  { icon: Award, label: 'Competências', path: '/competencies' },
+  { icon: Target, label: 'PDI', path: '/pdi' },
   { icon: Users, label: 'Mentoria', path: '/mentoring' },
   { icon: Brain, label: 'Teste Comportamental', path: '/assessment' },
 ];
@@ -26,6 +30,8 @@ const managerNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: ClipboardCheck, label: 'Onboarding da Equipe', path: '/onboarding' },
   { icon: UserCheck, label: 'Avaliações', path: '/evaluation' },
+  { icon: Award, label: 'Competências', path: '/competencies' },
+  { icon: Target, label: 'PDI', path: '/pdi' },
   { icon: Users, label: 'Mentorias', path: '/mentoring' },
   { icon: Brain, label: 'Perfis DISC', path: '/assessment' },
 ];
@@ -34,6 +40,8 @@ const hrNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: ClipboardCheck, label: 'Onboarding', path: '/onboarding' },
   { icon: UserCheck, label: 'Avaliações', path: '/evaluation' },
+  { icon: Award, label: 'Competências', path: '/competencies' },
+  { icon: Target, label: 'PDI', path: '/pdi' },
   { icon: Users, label: 'Mentorias', path: '/mentoring' },
   { icon: Brain, label: 'Perfis DISC', path: '/assessment' },
 ];

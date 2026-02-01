@@ -11,6 +11,8 @@ import Onboarding from "./pages/Onboarding";
 import Evaluation from "./pages/Evaluation";
 import Mentoring from "./pages/Mentoring";
 import Assessment from "./pages/Assessment";
+import CompetencyEvaluation from "./pages/CompetencyEvaluation";
+import IDP from "./pages/IDP";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
@@ -54,6 +56,8 @@ function AppRoutes() {
       <Route path="/evaluation" element={<ProtectedRoute><Evaluation /></ProtectedRoute>} />
       <Route path="/mentoring" element={<ProtectedRoute><Mentoring /></ProtectedRoute>} />
       <Route path="/assessment" element={<ProtectedRoute><Assessment /></ProtectedRoute>} />
+      <Route path="/competencies" element={<ProtectedRoute><CompetencyEvaluation /></ProtectedRoute>} />
+      <Route path="/pdi" element={<ProtectedRoute><IDP /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
