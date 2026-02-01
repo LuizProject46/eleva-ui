@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBrand } from '@/contexts/BrandContext';
 import { Button } from '@/components/ui/button';
@@ -27,7 +27,7 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  
+
   const { login } = useAuth();
   const { brand } = useBrand();
   const navigate = useNavigate();
@@ -52,15 +52,26 @@ export default function Login() {
       {/* Left Panel - Branding */}
       <div className="hidden lg:flex lg:w-1/2 gradient-hero relative overflow-hidden">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0djItSDI0di0yaDEyek0zNiAyNHYySDI0di0yaDEyeiIvPjwvZz48L2c+PC9zdmc+')] opacity-30" />
-        
+
         <div className="relative z-10 flex flex-col justify-center px-16 text-white">
           <div className="mb-12">
-            <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center mb-6">
-              <span className="text-3xl font-bold">{brand.companyName.charAt(0)}</span>
-            </div>
-            <h1 className="text-4xl font-display font-bold mb-4">
-              {brand.companyName}
-            </h1>
+
+            {brand.logoUrl ? (
+              <img
+                src={brand.logoUrl}
+                alt={brand.companyName}
+                className=" h-24 object-contain rounded-2xl mb-6"
+              />
+            ) : (
+              <>
+                <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center mb-6">
+                  <span className="text-3xl font-bold">{brand.companyName.charAt(0)}</span>
+                </div>
+                <h1 className="text-4xl font-display font-bold mb-4">
+                  {brand.companyName}
+                </h1>
+              </>
+            )}
             <p className="text-xl text-white/80 leading-relaxed">
               Plataforma completa de gestão de pessoas.
               Potencialize o desenvolvimento do seu time.
@@ -97,13 +108,23 @@ export default function Login() {
       {/* Right Panel - Login Form */}
       <div className="flex-1 flex items-center justify-center p-8 bg-background">
         <div className="w-full max-w-md animate-fade-in">
-          <div className="text-center mb-8 lg:hidden">
-            <div className="w-14 h-14 rounded-2xl gradient-hero flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl font-bold text-white">{brand.companyName.charAt(0)}</span>
-            </div>
-            <h1 className="text-2xl font-display font-bold text-foreground">
-              {brand.companyName}
-            </h1>
+          <div className="text-center mb-8 lg:hidden flex justify-center">
+            {brand.logoUrl ? (
+              <img
+                src={brand.logoUrl}
+                alt={brand.companyName}
+                className="h-24 object-contain rounded-2xl mb-6"
+              />
+            ) : (
+              <>
+                <div className="w-14 h-14 rounded-2xl gradient-hero flex items-center justify-center mx-auto mb-4">
+                  <span className="text-2xl font-bold text-white">{brand.companyName.charAt(0)}</span>
+                </div>
+                <h1 className="text-2xl font-display font-bold text-foreground">
+                  {brand.companyName}
+                </h1>
+              </>
+            )}
           </div>
 
           <div className="mb-8">
@@ -180,10 +201,8 @@ export default function Login() {
           </form>
 
           <p className="text-center text-sm text-muted-foreground mt-6">
-            Esqueceu sua senha?{' '}
-            <Link to="/esqueci-senha" className="text-primary hover:underline font-medium">
-              Recuperar acesso
-            </Link>
+            Esqueceu sua senha?
+            <a href="/forgot-password" className="text-primary hover:underline font-medium">Recuperar acesso</a>
           </p>
         </div>
       </div>

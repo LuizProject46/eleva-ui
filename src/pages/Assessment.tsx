@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { 
+import {
   Brain,
   ChevronRight,
   ChevronLeft,
@@ -28,49 +28,240 @@ const discQuestions: Question[] = [
       { value: 'I', text: 'Interagir com pessoas e persuadir outros' },
       { value: 'S', text: 'Manter a estabilidade e apoiar o time' },
       { value: 'C', text: 'Analisar dados e seguir procedimentos' },
-    ]
+    ],
   },
   {
     id: '2',
-    text: 'Quando surge um problema, sua primeira reação é:',
+    text: 'Quando surge um problema inesperado, você tende a:',
     options: [
       { value: 'D', text: 'Agir imediatamente para resolver' },
-      { value: 'I', text: 'Discutir com colegas e buscar ideias' },
-      { value: 'S', text: 'Avaliar o impacto nas pessoas envolvidas' },
-      { value: 'C', text: 'Coletar informações antes de decidir' },
-    ]
+      { value: 'I', text: 'Conversar com pessoas para buscar ideias' },
+      { value: 'S', text: 'Manter a calma e apoiar os envolvidos' },
+      { value: 'C', text: 'Avaliar dados antes de decidir' },
+    ],
   },
   {
     id: '3',
-    text: 'Você se sente mais motivado quando:',
+    text: 'Você se sente mais confortável quando:',
     options: [
-      { value: 'D', text: 'Tem desafios e metas audaciosas' },
-      { value: 'I', text: 'Pode se expressar e receber reconhecimento' },
-      { value: 'S', text: 'Tem um ambiente harmonioso e previsível' },
-      { value: 'C', text: 'Pode trabalhar com precisão e qualidade' },
-    ]
+      { value: 'D', text: 'Pode liderar e tomar decisões' },
+      { value: 'I', text: 'Pode se comunicar livremente' },
+      { value: 'S', text: 'Existe harmonia no ambiente' },
+      { value: 'C', text: 'As regras estão bem definidas' },
+    ],
   },
   {
     id: '4',
-    text: 'Em reuniões de equipe, você geralmente:',
+    text: 'Em reuniões, você geralmente:',
     options: [
-      { value: 'D', text: 'Lidera a discussão e propõe soluções' },
-      { value: 'I', text: 'Anima o grupo e traz energia' },
-      { value: 'S', text: 'Ouve atentamente e busca consenso' },
-      { value: 'C', text: 'Faz perguntas detalhadas e analíticas' },
-    ]
+      { value: 'D', text: 'Direciona a conversa para resultados' },
+      { value: 'I', text: 'Traz entusiasmo e engaja o grupo' },
+      { value: 'S', text: 'Escuta e busca consenso' },
+      { value: 'C', text: 'Analisa detalhes e faz perguntas técnicas' },
+    ],
   },
   {
     id: '5',
-    text: 'Seu maior ponto forte no trabalho é:',
+    text: 'Seu ritmo de trabalho é melhor quando:',
     options: [
-      { value: 'D', text: 'Determinação e foco em resultados' },
-      { value: 'I', text: 'Comunicação e entusiasmo' },
-      { value: 'S', text: 'Paciência e confiabilidade' },
-      { value: 'C', text: 'Precisão e atenção aos detalhes' },
-    ]
+      { value: 'D', text: 'Há desafios constantes' },
+      { value: 'I', text: 'Há interação com outras pessoas' },
+      { value: 'S', text: 'O ambiente é previsível' },
+      { value: 'C', text: 'Os processos são bem definidos' },
+    ],
+  },
+  {
+    id: '6',
+    text: 'Você se destaca mais quando pode:',
+    options: [
+      { value: 'D', text: 'Assumir responsabilidades e decidir' },
+      { value: 'I', text: 'Influenciar e motivar pessoas' },
+      { value: 'S', text: 'Oferecer suporte e estabilidade' },
+      { value: 'C', text: 'Garantir qualidade e precisão' },
+    ],
+  },
+  {
+    id: '7',
+    text: 'Diante de mudanças, você tende a:',
+    options: [
+      { value: 'D', text: 'Aceitar rapidamente e seguir em frente' },
+      { value: 'I', text: 'Ver oportunidades e envolver pessoas' },
+      { value: 'S', text: 'Preferir adaptação gradual' },
+      { value: 'C', text: 'Avaliar riscos antes de aceitar' },
+    ],
+  },
+  {
+    id: '8',
+    text: 'O que mais te motiva no trabalho?',
+    options: [
+      { value: 'D', text: 'Resultados e desafios' },
+      { value: 'I', text: 'Reconhecimento e interação' },
+      { value: 'S', text: 'Segurança e colaboração' },
+      { value: 'C', text: 'Organização e qualidade' },
+    ],
+  },
+  {
+    id: '9',
+    text: 'Você costuma ser visto como alguém que:',
+    options: [
+      { value: 'D', text: 'É direto e objetivo' },
+      { value: 'I', text: 'É comunicativo e otimista' },
+      { value: 'S', text: 'É paciente e confiável' },
+      { value: 'C', text: 'É analítico e criterioso' },
+    ],
+  },
+  {
+    id: '10',
+    text: 'Quando trabalha em equipe, você prefere:',
+    options: [
+      { value: 'D', text: 'Definir metas e cobrar resultados' },
+      { value: 'I', text: 'Criar um clima positivo' },
+      { value: 'S', text: 'Garantir cooperação entre todos' },
+      { value: 'C', text: 'Definir processos e padrões' },
+    ],
+  },
+  {
+    id: '11',
+    text: 'Seu maior diferencial profissional é:',
+    options: [
+      { value: 'D', text: 'Determinação' },
+      { value: 'I', text: 'Persuasão' },
+      { value: 'S', text: 'Constância' },
+      { value: 'C', text: 'Precisão' },
+    ],
+  },
+  {
+    id: '12',
+    text: 'Você se sente mais produtivo quando:',
+    options: [
+      { value: 'D', text: 'Tem autonomia para decidir' },
+      { value: 'I', text: 'Trabalha com outras pessoas' },
+      { value: 'S', text: 'Tem estabilidade no ambiente' },
+      { value: 'C', text: 'Segue processos claros' },
+    ],
+  },
+  {
+    id: '13',
+    text: 'Em situações de pressão, você:',
+    options: [
+      { value: 'D', text: 'Age rapidamente para resolver' },
+      { value: 'I', text: 'Motiva o grupo' },
+      { value: 'S', text: 'Mantém a calma' },
+      { value: 'C', text: 'Analisa cuidadosamente' },
+    ],
+  },
+  {
+    id: '14',
+    text: 'Você prefere tarefas que:',
+    options: [
+      { value: 'D', text: 'Exijam decisão e ação' },
+      { value: 'I', text: 'Envolvam comunicação' },
+      { value: 'S', text: 'Sejam previsíveis' },
+      { value: 'C', text: 'Exijam atenção aos detalhes' },
+    ],
+  },
+  {
+    id: '15',
+    text: 'No trabalho, você valoriza mais:',
+    options: [
+      { value: 'D', text: 'Resultados' },
+      { value: 'I', text: 'Relacionamentos' },
+      { value: 'S', text: 'Estabilidade' },
+      { value: 'C', text: 'Qualidade' },
+    ],
+  },
+  {
+    id: '16',
+    text: 'Quando recebe uma tarefa nova, você:',
+    options: [
+      { value: 'D', text: 'Começa imediatamente' },
+      { value: 'I', text: 'Discute com outras pessoas' },
+      { value: 'S', text: 'Segue o passo a passo' },
+      { value: 'C', text: 'Planeja antes de executar' },
+    ],
+  },
+  {
+    id: '17',
+    text: 'Você prefere ser reconhecido por:',
+    options: [
+      { value: 'D', text: 'Resultados alcançados' },
+      { value: 'I', text: 'Boa comunicação' },
+      { value: 'S', text: 'Lealdade e apoio' },
+      { value: 'C', text: 'Excelência técnica' },
+    ],
+  },
+  {
+    id: '18',
+    text: 'Você se sente mais confiante quando:',
+    options: [
+      { value: 'D', text: 'Tem controle da situação' },
+      { value: 'I', text: 'Pode influenciar pessoas' },
+      { value: 'S', text: 'O ambiente é estável' },
+      { value: 'C', text: 'Tem informações completas' },
+    ],
+  },
+  {
+    id: '19',
+    text: 'Seu estilo de comunicação é mais:',
+    options: [
+      { value: 'D', text: 'Direto' },
+      { value: 'I', text: 'Expressivo' },
+      { value: 'S', text: 'Calmo' },
+      { value: 'C', text: 'Detalhado' },
+    ],
+  },
+  {
+    id: '20',
+    text: 'Em projetos, você costuma:',
+    options: [
+      { value: 'D', text: 'Assumir a liderança' },
+      { value: 'I', text: 'Engajar o time' },
+      { value: 'S', text: 'Dar suporte constante' },
+      { value: 'C', text: 'Controlar a qualidade' },
+    ],
+  },
+  {
+    id: '21',
+    text: 'Você prefere ambientes que:',
+    options: [
+      { value: 'D', text: 'Sejam desafiadores' },
+      { value: 'I', text: 'Sejam colaborativos' },
+      { value: 'S', text: 'Sejam estáveis' },
+      { value: 'C', text: 'Sejam organizados' },
+    ],
+  },
+  {
+    id: '22',
+    text: 'Seu foco principal costuma ser:',
+    options: [
+      { value: 'D', text: 'Resultado final' },
+      { value: 'I', text: 'Relacionamento com pessoas' },
+      { value: 'S', text: 'Bem-estar do grupo' },
+      { value: 'C', text: 'Correção do processo' },
+    ],
+  },
+  {
+    id: '23',
+    text: 'Você aprende melhor quando:',
+    options: [
+      { value: 'D', text: 'Pode aplicar rapidamente' },
+      { value: 'I', text: 'Pode discutir ideias' },
+      { value: 'S', text: 'Tem tempo para absorver' },
+      { value: 'C', text: 'Tem material estruturado' },
+    ],
+  },
+  {
+    id: '24',
+    text: 'No trabalho, você tende a ser:',
+    options: [
+      { value: 'D', text: 'Assertivo' },
+      { value: 'I', text: 'Entusiasmado' },
+      { value: 'S', text: 'Constante' },
+      { value: 'C', text: 'Cuidadoso' },
+    ],
   },
 ];
+
 
 const discProfiles = {
   D: {
@@ -132,7 +323,7 @@ export default function Assessment() {
     Object.values(answers).forEach(value => {
       counts[value]++;
     });
-    const dominant = (Object.keys(counts) as Array<'D' | 'I' | 'S' | 'C'>).reduce((a, b) => 
+    const dominant = (Object.keys(counts) as Array<'D' | 'I' | 'S' | 'C'>).reduce((a, b) =>
       counts[a] > counts[b] ? a : b
     );
     return dominant;
@@ -153,7 +344,7 @@ export default function Assessment() {
               <Brain className="w-10 h-10 text-white" />
             </div>
             <h1 className="text-3xl font-display font-bold text-foreground">
-              Teste Comportamental DISC
+              Teste Comportamental
             </h1>
             <p className="text-muted-foreground mt-2">
               Descubra seu perfil comportamental e entenda seus pontos fortes
@@ -194,7 +385,7 @@ export default function Assessment() {
               </ul>
             </div>
 
-            <Button 
+            <Button
               className="w-full gradient-hero py-6 text-lg"
               onClick={() => setCurrentQuestion(0)}
             >
@@ -242,7 +433,7 @@ export default function Assessment() {
               <h3 className="font-semibold text-foreground mb-4">Características Principais</h3>
               <div className="flex flex-wrap gap-2">
                 {result.traits.map((trait) => (
-                  <span 
+                  <span
                     key={trait}
                     className={`px-4 py-2 rounded-full text-sm font-medium text-white bg-gradient-to-r ${result.color}`}
                   >
@@ -259,7 +450,7 @@ export default function Assessment() {
                 return (
                   <div key={key} className="text-center">
                     <div className={`w-full h-2 rounded-full bg-muted mb-2 overflow-hidden`}>
-                      <div 
+                      <div
                         className={`h-full bg-gradient-to-r ${profile.color} transition-all duration-500`}
                         style={{ width: `${percentage}%` }}
                       />
@@ -314,18 +505,16 @@ export default function Assessment() {
               <button
                 key={option.value}
                 onClick={() => handleAnswer(currentQ.id, option.value)}
-                className={`w-full p-4 rounded-xl border-2 text-left transition-all duration-200 ${
-                  answers[currentQ.id] === option.value
-                    ? 'border-primary bg-primary/5'
-                    : 'border-border hover:border-muted-foreground/30'
-                }`}
+                className={`w-full p-4 rounded-xl border-2 text-left transition-all duration-200 ${answers[currentQ.id] === option.value
+                  ? 'border-primary bg-primary/5'
+                  : 'border-border hover:border-muted-foreground/30'
+                  }`}
               >
                 <div className="flex items-center gap-4">
-                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                    answers[currentQ.id] === option.value
-                      ? 'border-primary bg-primary'
-                      : 'border-muted-foreground/30'
-                  }`}>
+                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${answers[currentQ.id] === option.value
+                    ? 'border-primary bg-primary'
+                    : 'border-muted-foreground/30'
+                    }`}>
                     {answers[currentQ.id] === option.value && (
                       <div className="w-2 h-2 rounded-full bg-white" />
                     )}

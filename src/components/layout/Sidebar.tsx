@@ -8,8 +8,13 @@ import {
   Brain,
   LogOut,
   Settings,
-  ChevronRight
+  ChevronRight,
+  Award,
+  ClipboardList,
+  Gamepad2,
+  Lock,
 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBrand } from '@/contexts/BrandContext';
 import { cn } from '@/lib/utils';
@@ -28,7 +33,7 @@ const managerNavItems = [
   { icon: ClipboardCheck, label: 'Onboarding da Equipe', path: '/onboarding' },
   { icon: UserCheck, label: 'Avaliações', path: '/evaluation' },
   { icon: Users, label: 'Mentorias', path: '/mentoring' },
-  { icon: Brain, label: 'Perfis DISC', path: '/assessment' },
+  { icon: Brain, label: 'Teste Comportamental', path: '/assessment' },
   { icon: UserPlus, label: 'Minha Equipe', path: '/colaboradores' },
 ];
 
@@ -37,8 +42,20 @@ const hrNavItems = [
   { icon: ClipboardCheck, label: 'Onboarding', path: '/onboarding' },
   { icon: UserCheck, label: 'Avaliações', path: '/evaluation' },
   { icon: Users, label: 'Mentorias', path: '/mentoring' },
-  { icon: Brain, label: 'Perfis DISC', path: '/assessment' },
+  { icon: Brain, label: 'Teste Comportamental', path: '/assessment' },
   { icon: UserPlus, label: 'Colaboradores', path: '/colaboradores' },
+];
+
+const comingSoonConfig = {
+  certificado: { enabled: false, path: '/certificado' },
+  pesquisaClima: { enabled: false, path: '/pesquisa-clima' },
+  gamificacao: { enabled: false, path: '/gamificacao' },
+} as const;
+
+const comingSoonNavItems = [
+  { id: 'certificado' as const, icon: Award, label: 'Certificado' },
+  { id: 'pesquisaClima' as const, icon: ClipboardList, label: 'Pesquisa de Clima' },
+  { id: 'gamificacao' as const, icon: Gamepad2, label: 'Gamificação' },
 ];
 
 function getNavItems(role: string) {
@@ -132,6 +149,32 @@ export function Sidebar() {
             </Link>
           );
         })}
+
+        {/* Itens em breve */}
+        <div className="mt-4 pt-3 border-t border-sidebar-border/50 space-y-1">
+        {comingSoonNavItems
+          .filter((item) => !comingSoonConfig[item.id].enabled)
+          .map((item) => {
+            const Icon = item.icon;
+            return (
+              <Tooltip key={item.id}>
+                <TooltipTrigger asChild>
+                  <div
+                    className="flex items-center gap-3 px-4 py-3 rounded-xl text-sidebar-foreground/50 opacity-60 cursor-not-allowed"
+                    aria-disabled
+                  >
+                    <Icon className="w-5 h-5 shrink-0" />
+                    <span className="font-medium text-sm flex-1">{item.label}</span>
+                    <Lock className="w-4 h-4 ml-auto opacity-70 shrink-0" />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  Em breve
+                </TooltipContent>
+              </Tooltip>
+            );
+          })}
+        </div>
       </nav>
 
       {/* Bottom Actions */}

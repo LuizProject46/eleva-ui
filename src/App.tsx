@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { NotificationProvider } from "@/contexts/NotificationContext";
 import { BrandProvider } from "@/contexts/BrandContext";
 import { TenantProvider } from "@/contexts/TenantContext";
 import Login from "./pages/Login";
@@ -57,30 +58,30 @@ function AuthLoadingScreen() {
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
-  
+
   if (isLoading) {
     return <AuthLoadingScreen />;
   }
-  
+
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
-  
+
   return <>{children}</>;
 }
 
 function AppRoutes() {
   const { isAuthenticated, isLoading } = useAuth();
-  
+
   if (isLoading) {
     return <AuthLoadingScreen />;
   }
-  
+
   return (
     <Routes>
       <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />} />
-      <Route path="/esqueci-senha" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <ForgotPassword />} />
-      <Route path="/redefinir-senha" element={<ResetPassword />} />
+      <Route path="/forgot-password" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/" element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />} />
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
@@ -100,11 +101,13 @@ const App = () => (
       <TenantProvider>
         <BrandProvider>
           <AuthProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <AppRoutes />
-            </BrowserRouter>
+            <NotificationProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <AppRoutes />
+              </BrowserRouter>
+            </NotificationProvider>
           </AuthProvider>
         </BrandProvider>
       </TenantProvider>
