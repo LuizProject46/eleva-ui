@@ -2,6 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Users, 
+  UserPlus,
   ClipboardCheck, 
   UserCheck, 
   Brain,
@@ -16,8 +17,8 @@ import facholiLogo from '@/assets/facholi-logo.png';
 
 const employeeNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-  { icon: ClipboardCheck, label: 'Meu Onboarding', path: '/onboarding' },
-  { icon: UserCheck, label: 'Avaliação', path: '/evaluation' },
+  { icon: ClipboardCheck, label: 'Trilha de Desenvolvimento', path: '/onboarding' },
+  { icon: UserCheck, label: 'Avaliação/Feedback', path: '/evaluation' },
   { icon: Users, label: 'Mentoria', path: '/mentoring' },
   { icon: Brain, label: 'Teste Comportamental', path: '/assessment' },
 ];
@@ -28,6 +29,7 @@ const managerNavItems = [
   { icon: UserCheck, label: 'Avaliações', path: '/evaluation' },
   { icon: Users, label: 'Mentorias', path: '/mentoring' },
   { icon: Brain, label: 'Perfis DISC', path: '/assessment' },
+  { icon: UserPlus, label: 'Minha Equipe', path: '/colaboradores' },
 ];
 
 const hrNavItems = [
@@ -36,6 +38,7 @@ const hrNavItems = [
   { icon: UserCheck, label: 'Avaliações', path: '/evaluation' },
   { icon: Users, label: 'Mentorias', path: '/mentoring' },
   { icon: Brain, label: 'Perfis DISC', path: '/assessment' },
+  { icon: UserPlus, label: 'Colaboradores', path: '/colaboradores' },
 ];
 
 function getNavItems(role: string) {

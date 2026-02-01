@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBrand } from '@/contexts/BrandContext';
 import { Button } from '@/components/ui/button';
@@ -181,9 +181,9 @@ export default function Login() {
 
           <p className="text-center text-sm text-muted-foreground mt-6">
             Esqueceu sua senha?{' '}
-            <a href="#" className="text-primary hover:underline font-medium">
+            <Link to="/esqueci-senha" className="text-primary hover:underline font-medium">
               Recuperar acesso
-            </a>
+            </Link>
           </p>
         </div>
       </div>

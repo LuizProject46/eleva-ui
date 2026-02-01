@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
+import type { AuthChangeEvent } from '@supabase/supabase-js';
+import { useTenant } from '@/contexts/TenantContext';
 
 export type UserRole = 'employee' | 'manager' | 'hr';
 
@@ -12,6 +14,7 @@ export interface User {
   avatar?: string;
   department?: string;
   position?: string;
+  tenantId?: string;
 }
 
 interface AuthContextType {
@@ -27,7 +30,16 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-function mapProfileToUser(profile: { id: string; email: string; name: string; role: string; department?: string | null; position?: string | null; avatar_url?: string | null }): User {
+function mapProfileToUser(profile: {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  department?: string | null;
+  position?: string | null;
+  avatar_url?: string | null;
+  tenant_id?: string | null;
+}): User {
   return {
     id: profile.id,
     email: profile.email,
@@ -36,59 +48,162 @@ function mapProfileToUser(profile: { id: string; email: string; name: string; ro
     department: profile.department ?? undefined,
     position: profile.position ?? undefined,
     avatar: profile.avatar_url ?? undefined,
+    tenantId: profile.tenant_id ?? undefined,
   };
 }
 
 async function fetchProfile(userId: string): Promise<User | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, email, name, role, department, position, avatar_url')
+    .select('id, email, name, role, department, position, avatar_url, tenant_id')
     .eq('id', userId)
-    .single();
+    .maybeSingle();
 
-  if (error || !data) return null;
+  if (error) {
+    const { data: fallback } = await supabase
+      .from('profiles')
+      .select('id, email, name, role, department, position, avatar_url')
+      .eq('id', userId)
+      .maybeSingle();
+    if (fallback) return mapProfileToUser(fallback);
+    return null;
+  }
+  if (!data) return null;
   return mapProfileToUser(data);
 }
 
+const INIT_SESSION_TIMEOUT_MS = 10_000;
+
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const { tenant } = useTenant();
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const loadUser = useCallback(async (supabaseUser: SupabaseUser) => {
-    const profile = await fetchProfile(supabaseUser.id);
-    if (profile) setUser(profile);
-    else setUser(null);
+  const ensureProfileTenant = useCallback(
+    async (userId: string): Promise<void> => {
+      if (!tenant?.id) return;
+      await supabase
+        .from('profiles')
+        .update({ tenant_id: tenant.id })
+        .eq('id', userId)
+        .is('tenant_id', null);
+    },
+    [tenant?.id]
+  );
+
+  const loadUser = useCallback(
+    async (supabaseUser: SupabaseUser): Promise<User | null> => {
+      const profile = await fetchProfile(supabaseUser.id);
+      if (!profile) return null;
+
+      if (tenant && profile.tenantId && profile.tenantId !== tenant.id) {
+        return null;
+      }
+
+      if (tenant && !profile.tenantId) {
+        await ensureProfileTenant(supabaseUser.id);
+        const updated = await fetchProfile(supabaseUser.id);
+        if (updated) {
+          setUser(updated);
+          return updated;
+        }
+      }
+
+      setUser(profile);
+      return profile;
+    },
+    [tenant, ensureProfileTenant]
+  );
+
+  const clearSession = useCallback(async () => {
+    await supabase.auth.signOut();
+    setUser(null);
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+
     const initSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        await loadUser(session.user);
-      } else {
-        setUser(null);
+      const timeoutId = setTimeout(() => {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }, INIT_SESSION_TIMEOUT_MS);
+
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (cancelled) return;
+
+        if (session?.user) {
+          const profile = await loadUser(session.user);
+          if (!profile && !cancelled) {
+            await clearSession();
+          }
+        } else {
+          setUser(null);
+        }
+      } catch {
+        if (!cancelled) {
+          setUser(null);
+        }
+      } finally {
+        if (!cancelled) {
+          clearTimeout(timeoutId);
+          setIsLoading(false);
+        }
       }
-      setIsLoading(false);
     };
 
     initSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session?.user) {
-        await loadUser(session.user);
-      } else {
-        setUser(null);
-      }
-      setIsLoading(false);
-    });
+    // const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    //   async (event: AuthChangeEvent, session) => {
+    //     if (event === 'INITIAL_SESSION') return;
 
-    return () => subscription.unsubscribe();
-  }, [loadUser]);
+    //     if (cancelled) return;
+
+    //     if (event === 'PASSWORD_RECOVERY' && session?.user) {
+    //       const profile = await loadUser(session.user);
+    //       if (profile) setUser(profile);
+    //       return;
+    //     }
+
+    //     if (event === 'SIGNED_OUT' || !session) {
+    //       setUser(null);
+    //       return;
+    //     }
+
+    //     if (session.user) {
+    //       const profile = await loadUser(session.user);
+    //       if (!profile) {
+    //         await clearSession();
+    //       }
+    //     }
+    //   }
+    // );
+
+    // return () => {
+    //   cancelled = true;
+    //   subscription.unsubscribe();
+    // };
+  }, [loadUser, clearSession]);
 
   const login = async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
-    if (data.user) await loadUser(data.user);
+    if (data.user) {
+      let profile = await loadUser(data.user);
+      if (!profile) {
+        await clearSession();
+        throw new Error('Perfil não encontrado ou acesso não permitido para este portal. Entre em contato com o suporte.');
+      }
+      if (tenant && !profile.tenantId) {
+        await ensureProfileTenant(data.user.id);
+        profile = await fetchProfile(data.user.id);
+        if (profile) setUser(profile);
+      }
+    }
   };
 
   const logout = async () => {

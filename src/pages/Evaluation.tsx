@@ -117,7 +117,7 @@ export default function Evaluation() {
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-3xl font-display font-bold text-foreground">
-              {isTeamView ? 'Avaliações de Desempenho' : 'Minhas Avaliações'}
+              {isTeamView ? 'Avaliações de Desempenho' : 'Minhas Avaliações/Feedbacks'}
             </h1>
             <p className="text-muted-foreground mt-1">
               {isTeamView

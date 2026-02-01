@@ -1,0 +1,7 @@
+# Configuração das Edge Functions
+# verify_jwt = false desabilita a validação do gateway
+[functions.invite-employee]
+verify_jwt = false
+
+[functions.send-email]
+verify_jwt = false

@@ -104,7 +104,7 @@ export default function Onboarding() {
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-3xl font-display font-bold text-foreground">
-              {isTeamView ? (isHR() ? 'Gerenciar Onboarding' : 'Onboarding da Equipe') : 'Meu Onboarding'}
+              {isTeamView ? (isHR() ? 'Gerenciar Onboarding' : 'Onboarding da Equipe') : 'Trilha de Desenvolvimento'}
             </h1>
             <p className="text-muted-foreground mt-1">
               {isTeamView

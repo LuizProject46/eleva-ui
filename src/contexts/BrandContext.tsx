@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { useTenant } from '@/contexts/TenantContext';
 
-interface BrandConfig {
+export interface BrandConfig {
   companyName: string;
   logoUrl?: string;
   primaryColor: string;
@@ -21,21 +22,40 @@ const defaultBrand: BrandConfig = {
 
 const BrandContext = createContext<BrandContextType | undefined>(undefined);
 
+function applyBrandToCss(config: Partial<BrandConfig>) {
+  if (config.primaryColor) {
+    document.documentElement.style.setProperty('--brand-primary', config.primaryColor);
+    document.documentElement.style.setProperty('--primary', config.primaryColor);
+  }
+  if (config.accentColor) {
+    document.documentElement.style.setProperty('--brand-accent', config.accentColor);
+    document.documentElement.style.setProperty('--accent', config.accentColor);
+  }
+}
+
 export function BrandProvider({ children }: { children: ReactNode }) {
+  const { tenant } = useTenant();
   const [brand, setBrand] = useState<BrandConfig>(defaultBrand);
 
+  useEffect(() => {
+    if (tenant) {
+      const newBrand: BrandConfig = {
+        companyName: tenant.companyName,
+        logoUrl: tenant.logoUrl ?? undefined,
+        primaryColor: tenant.primaryColor,
+        accentColor: tenant.accentColor,
+      };
+      setBrand(newBrand);
+      applyBrandToCss(newBrand);
+    }
+  }, [tenant]);
+
   const updateBrand = (config: Partial<BrandConfig>) => {
-    setBrand(prev => ({ ...prev, ...config }));
-    
-    // Update CSS variables for whitelabel
-    if (config.primaryColor) {
-      document.documentElement.style.setProperty('--brand-primary', config.primaryColor);
-      document.documentElement.style.setProperty('--primary', config.primaryColor);
-    }
-    if (config.accentColor) {
-      document.documentElement.style.setProperty('--brand-accent', config.accentColor);
-      document.documentElement.style.setProperty('--accent', config.accentColor);
-    }
+    setBrand(prev => {
+      const next = { ...prev, ...config };
+      applyBrandToCss(config);
+      return next;
+    });
   };
 
   return (
