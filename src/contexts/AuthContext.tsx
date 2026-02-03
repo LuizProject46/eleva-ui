@@ -17,6 +17,12 @@ export interface User {
   tenantId?: string;
 }
 
+/** Minimal profile shape for permission checks (e.g. manager_id for canEditUser) */
+export interface TargetProfileForPermission {
+  id?: string;
+  manager_id?: string | null;
+}
+
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
@@ -26,6 +32,9 @@ interface AuthContextType {
   isHR: () => boolean;
   isManager: () => boolean;
   canManageUsers: () => boolean;
+  canCreateUser: () => boolean;
+  canEditUser: (targetProfile: TargetProfileForPermission) => boolean;
+  canChangeRoleAndStatus: () => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -55,20 +64,24 @@ function mapProfileToUser(profile: {
 async function fetchProfile(userId: string): Promise<User | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, email, name, role, department, position, avatar_url, tenant_id')
+    .select('id, email, name, role, department, position, avatar_url, tenant_id, is_active')
     .eq('id', userId)
     .maybeSingle();
 
   if (error) {
     const { data: fallback } = await supabase
       .from('profiles')
-      .select('id, email, name, role, department, position, avatar_url')
+      .select('id, email, name, role, department, position, avatar_url, is_active')
       .eq('id', userId)
       .maybeSingle();
-    if (fallback) return mapProfileToUser(fallback);
+    if (fallback) {
+      if (fallback.is_active === false) return null;
+      return mapProfileToUser(fallback);
+    }
     return null;
   }
   if (!data) return null;
+  if (data.is_active === false) return null;
   return mapProfileToUser(data);
 }
 
@@ -196,6 +209,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       let profile = await loadUser(data.user);
       if (!profile) {
         await clearSession();
+        const { data: check } = await supabase
+          .from('profiles')
+          .select('is_active')
+          .eq('id', data.user.id)
+          .maybeSingle();
+        if (check?.is_active === false) {
+          throw new Error('Sua conta está inativa. Entre em contato com o RH.');
+        }
         throw new Error('Perfil não encontrado ou acesso não permitido para este portal. Entre em contato com o suporte.');
       }
       if (tenant && !profile.tenantId) {
@@ -214,6 +235,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isHR = () => user?.role === 'hr';
   const isManager = () => user?.role === 'manager';
   const canManageUsers = () => user?.role === 'hr' || user?.role === 'manager';
+  const canCreateUser = () => user?.role === 'hr';
+  const canEditUser = (targetProfile: TargetProfileForPermission) => {
+    if (!user) return false;
+    if (user.role === 'hr') return true;
+    if (user.role === 'manager') return targetProfile.manager_id === user.id;
+    return false;
+  };
+  const canChangeRoleAndStatus = () => user?.role === 'hr';
 
   return (
     <AuthContext.Provider
@@ -226,6 +255,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isHR,
         isManager,
         canManageUsers,
+        canCreateUser,
+        canEditUser,
+        canChangeRoleAndStatus,
       }}
     >
       {children}

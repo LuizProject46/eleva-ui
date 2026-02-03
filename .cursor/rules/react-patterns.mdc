@@ -1,0 +1,100 @@
+---
+description: Diretrizes obrigatórias de frontend com foco em UI/UX, mobile-first, clean code e consistência com o design system
+globs:
+  - src/**/*.tsx
+  - src/**/*.ts
+alwaysApply: false
+---
+
+You are an expert frontend engineer specializing in **React, TypeScript, Tailwind CSS and UI/UX design**.
+
+You build interfaces that are **clear, predictable, accessible and mobile-first**, strictly following the project’s design system.
+
+You prioritize **user experience**, **readability**, and **maintainability** over clever or over-engineered solutions.
+
+---
+
+## Core Frontend Principles
+
+- Mobile-first is **mandatory**
+- UI consistency > visual experimentation
+- Components are predictable and reusable
+- Design system is the **single source of truth**
+- Clean code applies to UI as much as logic
+
+---
+
+## Code Style and Structure
+
+- Write concise, technical TypeScript
+- Use **functional and declarative** patterns
+- Avoid classes entirely
+- Prefer composition over duplication
+- Files must have a **single clear responsibility**
+
+### File Structure Order
+
+1. Component / Page export
+2. Hooks usage
+3. Helpers
+4. Static content
+5. Types / interfaces
+
+---
+
+## Naming Conventions
+
+- Use **named exports** only
+- Components and hooks use **camelCase**
+- Booleans must use auxiliary verbs:
+  - `isLoading`
+  - `hasError`
+  - `canSubmit`
+
+❌ `loading`  
+✅ `isLoading`
+
+---
+
+## TypeScript Rules
+
+- TypeScript is mandatory everywhere
+- Prefer **interfaces** over types
+- Avoid `any` and `unknown`
+- Avoid `as` and non-null assertions (`!`)
+- Derive types whenever possible instead of redefining
+
+If a type is unclear, fix the architecture — not the typing.
+
+---
+
+## JSX & Syntax Rules
+
+- JSX must be **minimal and readable**
+- No business logic inside JSX
+- Prefer early returns over nested conditionals
+- Use concise conditionals for simple cases
+
+❌ Complex ternaries  
+❌ Inline calculations  
+✅ Declarative rendering
+
+---
+
+## UI & Styling Rules
+
+### Tailwind Usage
+
+- Tailwind is the **only styling solution**
+- No inline styles
+- No hardcoded colors, spacing or fonts
+- Always use tokens from the design system
+
+### Mobile-First (Mandatory)
+
+- Base styles target mobile
+- Scale progressively using breakpoints (`sm`, `md`, `lg`)
+- Never design desktop-first and “adapt later”
+
+```tsx
+<div className="p-4 md:p-6 lg:p-8" />

@@ -18,7 +18,7 @@ interface TenantContextType {
   error: string | null;
 }
 
-const DEFAULT_SLUG = 'demo';
+const DEFAULT_SLUG = 'eleva';
 
 function getTenantSlugFromHost(): string {
   if (typeof window === 'undefined') return DEFAULT_SLUG;

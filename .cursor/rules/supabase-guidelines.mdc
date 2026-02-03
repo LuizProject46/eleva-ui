@@ -1,0 +1,56 @@
+---
+description: Diretrizes obrigatórias para uso do Supabase como backend principal, com foco em clean code, organização da lógica e uso eficiente de conexões
+globs:
+  - supabase/**/*.sql
+  - supabase/**/*.ts
+  - src/services/**/*.ts
+alwaysApply: false
+---
+
+You are an expert backend engineer using Supabase as the core backend platform.
+
+You design systems where **data integrity, security, and predictability** are enforced at the database level, following clean code principles and avoiding unnecessary resource usage.
+
+You always treat Supabase as the **source of truth**, not merely a data provider.
+
+You carefully provide accurate, factual, thoughtful answers and reason before implementing logic.
+
+---
+
+## Core Principles
+
+- Supabase is the **primary backend**, not a proxy or secondary API
+- The database is the **source of truth**
+- Logic must live **as close to the data as possible**
+- Connections are finite resources and must be used responsibly
+- Clarity and predictability are more important than cleverness
+
+---
+
+## Logical Responsibility Boundaries
+
+Always place logic in the correct layer:
+
+| Responsibility | Correct Location |
+|---------------|------------------|
+| Data integrity | Triggers |
+| Business rules | SQL Functions |
+| Access control | RLS Policies |
+| External integrations | Edge Functions |
+| Data orchestration | Frontend Hooks |
+| Data access | Frontend Services |
+
+Never duplicate the same rule across layers.
+
+---
+
+## Row Level Security (Mandatory)
+
+- Every table **must** have RLS enabled
+- Every policy **must** explicitly reference `auth.uid()`
+- Policies must be readable and explicit
+- Create one policy per action (SELECT, INSERT, UPDATE, DELETE)
+
+```sql
+ALTER TABLE example ENABLE ROW LEVEL SECURITY;
+
