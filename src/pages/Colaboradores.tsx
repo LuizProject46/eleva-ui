@@ -132,8 +132,11 @@ export default function Colaboradores() {
 
   const PAGE_SIZE_OPTIONS = [10, 25, 50];
 
+  const canManage = user?.role === 'hr' || user?.role === 'manager';
+  const isManagerRole = user?.role === 'manager';
+
   const fetchProfiles = useCallback(async () => {
-    if (!canManageUsers()) return;
+    if (!canManage) return;
 
     setLoading(true);
     let query = supabase
@@ -142,8 +145,7 @@ export default function Colaboradores() {
         'id, email, name, role, department, position, cost_center, manager_id, is_active, manager:profiles!manager_id(name)',
         { count: 'exact' }
       )
-      .order(sortBy, { ascending: sortAsc })
-      .range((page - 1) * pageSize, page * pageSize - 1);
+      .order(sortBy, { ascending: sortAsc });
 
     if (user?.id) {
       query = query.neq('id', user.id);
@@ -151,8 +153,13 @@ export default function Colaboradores() {
     if (filterDepartment !== 'all') {
       query = query.eq('department', filterDepartment);
     }
-    if (filterManager !== 'all' || isManager()) {
-      query = query.eq('manager_id', isManager() ? user?.id : filterManager);
+    if (isManagerRole && user?.id) {
+      query = query.eq('manager_id', user.id);
+    }
+
+    if (!isManagerRole && filterManager && filterManager !== 'all') {
+      console.log('filterManager', filterManager);
+      query = query.eq('manager_id', filterManager);
     }
     if (debouncedName.trim()) {
       query = query.ilike('name', `%${debouncedName.trim()}%`);
@@ -168,6 +175,8 @@ export default function Colaboradores() {
     } else if (filterActiveStatus === 'inactive') {
       query = query.eq('is_active', false);
     }
+
+    query = query.range((page - 1) * pageSize, page * pageSize - 1);
 
     const { data, error, count } = await query;
 
@@ -190,10 +199,10 @@ export default function Colaboradores() {
       })
     );
     setLoading(false);
-  }, [canManageUsers, page, pageSize, filterDepartment, filterManager, debouncedName, debouncedEmail, debouncedPosition, filterActiveStatus, sortBy, sortAsc, user?.id]);
+  }, [canManage, isManagerRole, page, pageSize, filterDepartment, filterManager, debouncedName, debouncedEmail, debouncedPosition, filterActiveStatus, sortBy, sortAsc, user?.id]);
 
   const fetchManagers = useCallback(async () => {
-    if (!canManageUsers()) return;
+    if (!canManage) return;
     const { data } = await supabase
       .from('profiles')
       .select('id, email, name, role')
@@ -201,12 +210,18 @@ export default function Colaboradores() {
       .order('name');
 
     setManagers(data ?? []);
-  }, [canManageUsers]);
+  }, [canManage]);
 
+  // Managers list: fetch once on mount (or when permission changes), not on every filter/page change
   useEffect(() => {
-    fetchProfiles();
     fetchManagers();
-  }, [fetchProfiles, fetchManagers]);
+  }, [fetchManagers]);
+
+  // Profiles: refetch only when filters, page, sort or pageSize actually change (stable deps)
+  useEffect(() => {
+    if (!canManage) return;
+    fetchProfiles();
+  }, [canManage, fetchProfiles]);
 
   const handleFilterDepartmentChange = (value: string) => {
     setFilterDepartment(value);
@@ -818,7 +833,7 @@ export default function Colaboradores() {
                         {Array.from(
                           new Set([
                             ...(editForm.department &&
-                            !(DEFAULT_DEPARTMENTS as readonly string[]).includes(editForm.department)
+                              !(DEFAULT_DEPARTMENTS as readonly string[]).includes(editForm.department)
                               ? [editForm.department]
                               : []),
                             ...DEFAULT_DEPARTMENTS,

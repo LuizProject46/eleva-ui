@@ -1,9 +1,7 @@
 ---
-description: Diretrizes obrigatórias de frontend com foco em UI/UX, mobile-first, clean code e consistência com o design system
-globs:
-  - src/**/*.tsx
-  - src/**/*.ts
-alwaysApply: false
+description: obrigatórias de frontend com foco em UI/UX, mobile-first, clean code
+- consistência com o design system
+alwaysApply: true
 ---
 
 You are an expert frontend engineer specializing in **React, TypeScript, Tailwind CSS and UI/UX design**.

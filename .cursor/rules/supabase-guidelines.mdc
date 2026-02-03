@@ -1,10 +1,6 @@
 ---
-description: Diretrizes obrigatórias para uso do Supabase como backend principal, com foco em clean code, organização da lógica e uso eficiente de conexões
-globs:
-  - supabase/**/*.sql
-  - supabase/**/*.ts
-  - src/services/**/*.ts
-alwaysApply: false
+description: Diretrizes obrigatórias para uso do Supabase como backend principal, com foco em clean code e uso eficiente
+alwaysApply: true
 ---
 
 You are an expert backend engineer using Supabase as the core backend platform.
@@ -32,7 +28,7 @@ You carefully provide accurate, factual, thoughtful answers and reason before im
 Always place logic in the correct layer:
 
 | Responsibility | Correct Location |
-|---------------|------------------|
+|---|---|
 | Data integrity | Triggers |
 | Business rules | SQL Functions |
 | Access control | RLS Policies |
@@ -53,4 +49,3 @@ Never duplicate the same rule across layers.
 
 ```sql
 ALTER TABLE example ENABLE ROW LEVEL SECURITY;
-
