@@ -27,6 +27,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Star,
   TrendingUp,
@@ -45,7 +46,9 @@ import {
   getEligibleTargetRoles,
   canShowEvaluationType,
   canEvaluate,
+  getFormTypeOptions,
   type UserRole,
+  type FormTypeOption,
 } from '@/lib/evaluationPermissions';
 
 type EvaluationType =
@@ -197,16 +200,40 @@ function EvaluationTimelineCard({
   competencies,
   scoresByEvaluationId,
   titleLabel,
+  isLoading = false,
 }: {
-  evaluation: EvaluationRecord;
-  competencies: Competency[];
-  scoresByEvaluationId: ScoresByEvaluation;
+  evaluation?: EvaluationRecord;
+  competencies?: Competency[];
+  scoresByEvaluationId?: ScoresByEvaluation;
   /** e.g. evaluator name (Received), evaluated name (Sent/To Do), or "Autoavaliação" (Self) */
-  titleLabel: string;
+  titleLabel?: string;
+  isLoading?: boolean;
 }) {
-  const scores = scoresByEvaluationId[evaluation.id] ?? {};
+  if (isLoading) {
+    return (
+      <div className="card-elevated overflow-hidden">
+        <div className="w-full p-4 flex items-center justify-between gap-4">
+          <div className="min-w-0 flex-1 space-y-2">
+            <Skeleton className="h-5 w-48" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Skeleton className="h-5 w-12 rounded" />
+            <Skeleton className="h-4 w-20" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!evaluation) {
+    return null;
+  }
+
+  const scores = (scoresByEvaluationId ?? {})[evaluation.id] ?? {};
+  const comps = competencies ?? [];
   const isDirectFeedback = evaluation.type === 'direct_feedback';
-  const hasCriteria = !isDirectFeedback && competencies.length > 0;
+  const hasCriteria = !isDirectFeedback && comps.length > 0;
 
   return (
     <Collapsible>
@@ -217,7 +244,7 @@ function EvaluationTimelineCard({
             className="w-full p-4 flex items-center justify-between gap-4 text-left hover:bg-muted/30 transition-colors"
           >
             <div className="min-w-0 flex-1">
-              <p className="font-medium text-foreground">{titleLabel}</p>
+              <p className="font-medium text-foreground">{titleLabel ?? '—'}</p>
               <p className="text-sm text-muted-foreground mt-0.5">
                 {EVALUATION_TYPE_LABELS[evaluation.type as EvaluationType]}
                 {evaluation.period_name && ` · ${evaluation.period_name}`}
@@ -249,7 +276,7 @@ function EvaluationTimelineCard({
                 {evaluation.feedback_text}
               </p>
             ) : hasCriteria ? (
-              competencies
+              comps
                 .sort((a, b) => a.order - b.order)
                 .map((c) => {
                   const sc = scores[c.id];
@@ -391,7 +418,7 @@ function EvaluatedFilterCombobox({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="h-9 w-[180px] sm:w-[200px] justify-between font-normal"
+          className="h-9 w-[180px] sm:w-[200px] justify-between font-normal hover:bg-muted/30 transition-colors hover:text-accent"
         >
           <span className="truncate">{displayValue}</span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -434,6 +461,94 @@ function EvaluatedFilterCombobox({
   );
 }
 
+function EvaluatedAsyncCombobox({
+  selectedId,
+  selectedName,
+  searchQuery,
+  onSearchQueryChange,
+  searchResults,
+  searchLoading,
+  onSelect,
+  disabled,
+  placeholder = 'Selecione...',
+}: {
+  selectedId: string;
+  selectedName: string;
+  searchQuery: string;
+  onSearchQueryChange: (q: string) => void;
+  searchResults: ProfileOption[];
+  searchLoading: boolean;
+  onSelect: (id: string, role: string) => void;
+  disabled?: boolean;
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const displayValue = selectedName || placeholder;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          disabled={disabled}
+          className="max-w-xs w-full justify-between font-normal hover:bg-muted/30 transition-colors hover:text-accent"
+        >
+          <span className="truncate">{displayValue}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+        <Command shouldFilter={false}>
+          <CommandInput
+            placeholder="Buscar por nome..."
+            className="h-9"
+            value={searchQuery}
+            onValueChange={onSearchQueryChange}
+          />
+          <CommandList>
+            {searchLoading ? (
+              <div className="py-6 text-center text-sm text-muted-foreground">Carregando...</div>
+            ) : (
+              <>
+                <CommandEmpty>Nenhum encontrado.</CommandEmpty>
+                <CommandGroup>
+                  {selectedId && (
+                    <CommandItem
+                      value="__clear__"
+                      onSelect={() => {
+                        onSelect('', '');
+                        setOpen(false);
+                      }}
+                    >
+                      Limpar seleção
+                    </CommandItem>
+                  )}
+                  {searchResults.map((p) => (
+                    <CommandItem
+                      key={p.id}
+                      value={p.id}
+                      onSelect={() => {
+                        onSelect(p.id, p.role);
+                        setOpen(false);
+                      }}
+                    >
+                      <Check className={selectedId === p.id ? 'mr-2 h-4 w-4 opacity-100' : 'mr-2 h-4 w-4 opacity-0'} />
+                      {p.name}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </>
+            )}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export default function Evaluation() {
   const { user, isHR, isManager } = useAuth();
   const { fetchNotifications } = useNotifications();
@@ -443,12 +558,28 @@ export default function Evaluation() {
   const [peopleOptions, setPeopleOptions] = useState<ProfileOption[]>([]);
   const [receivedEvaluations, setReceivedEvaluations] = useState<EvaluationRecord[]>([]);
   const [receivedPage, setReceivedPage] = useState(1);
-  const [receivedFilters, setReceivedFilters] = useState<{ evaluatorId?: string; type?: string; periodId?: string }>({});
+  const [receivedFilters, setReceivedFilters] = useState<{
+    evaluatorId?: string;
+    evaluatorName?: string;
+    type?: string;
+    periodId?: string;
+  }>({});
+  const [evaluatorSearchQuery, setEvaluatorSearchQuery] = useState('');
+  const [evaluatorSearchResults, setEvaluatorSearchResults] = useState<ProfileOption[]>([]);
+  const [evaluatorSearchLoading, setEvaluatorSearchLoading] = useState(false);
   const [receivedTotalCount, setReceivedTotalCount] = useState(0);
 
   const [sentEvaluations, setSentEvaluations] = useState<EvaluationRecord[]>([]);
   const [sentPage, setSentPage] = useState(1);
-  const [sentFilters, setSentFilters] = useState<{ evaluatedId?: string; type?: string; periodId?: string }>({});
+  const [sentFilters, setSentFilters] = useState<{
+    evaluatedId?: string;
+    evaluatedName?: string;
+    type?: string;
+    periodId?: string;
+  }>({});
+  const [sentEvaluatedSearchQuery, setSentEvaluatedSearchQuery] = useState('');
+  const [sentEvaluatedSearchResults, setSentEvaluatedSearchResults] = useState<ProfileOption[]>([]);
+  const [sentEvaluatedSearchLoading, setSentEvaluatedSearchLoading] = useState(false);
   const [sentTotalCount, setSentTotalCount] = useState(0);
 
   const [selfEvaluations, setSelfEvaluations] = useState<EvaluationRecord[]>([]);
@@ -458,7 +589,14 @@ export default function Evaluation() {
 
   const [teamSelfEvaluations, setTeamSelfEvaluations] = useState<EvaluationRecord[]>([]);
   const [teamSelfEvalPage, setTeamSelfEvalPage] = useState(1);
-  const [teamSelfEvalFilters, setTeamSelfEvalFilters] = useState<{ evaluatedId?: string; periodId?: string }>({});
+  const [teamSelfEvalFilters, setTeamSelfEvalFilters] = useState<{
+    evaluatedId?: string;
+    evaluatedName?: string;
+    periodId?: string;
+  }>({});
+  const [teamSelfEvalSearchQuery, setTeamSelfEvalSearchQuery] = useState('');
+  const [teamSelfEvalSearchResults, setTeamSelfEvalSearchResults] = useState<ProfileOption[]>([]);
+  const [teamSelfEvalSearchLoading, setTeamSelfEvalSearchLoading] = useState(false);
   const [teamSelfEvalTotalCount, setTeamSelfEvalTotalCount] = useState(0);
 
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -468,8 +606,14 @@ export default function Evaluation() {
   const [submitting, setSubmitting] = useState(false);
 
   const [formType, setFormType] = useState<EvaluationType>('self');
+  const [formTargetRole, setFormTargetRole] = useState<UserRole | null>(null);
   const [formEvaluatedId, setFormEvaluatedId] = useState<string>('');
+  const [formEvaluatedRole, setFormEvaluatedRole] = useState<UserRole | null>(null);
   const [formPeriodId, setFormPeriodId] = useState<string>('none');
+  const [evaluatedSearchQuery, setEvaluatedSearchQuery] = useState('');
+  const [evaluatedSearchResults, setEvaluatedSearchResults] = useState<ProfileOption[]>([]);
+  const [evaluatedSearchLoading, setEvaluatedSearchLoading] = useState(false);
+  const [formEvaluatedName, setFormEvaluatedName] = useState('');
   const [formScores, setFormScores] = useState<Record<string, number>>({});
   const [formComments, setFormComments] = useState<Record<string, string>>({});
   const [formFeedbackText, setFormFeedbackText] = useState('');
@@ -507,6 +651,63 @@ export default function Evaluation() {
     }));
     setPeopleOptions(list);
   }, [user?.id]);
+
+  const searchProfilesForEvaluation = useCallback(
+    async (
+      searchTerm: string,
+      targetRole: UserRole | null,
+      type: EvaluationType,
+      currentUser: { id: string; tenantId: string; role: string }
+    ): Promise<ProfileOption[]> => {
+      if (!currentUser?.tenantId || !targetRole || type === 'self') return [];
+      let query = supabase
+        .from('profiles')
+        .select('id, name, role')
+        .eq('tenant_id', currentUser.tenantId)
+        .eq('role', targetRole)
+        .neq('id', currentUser.id)
+        .order('name')
+        .limit(20);
+      if (searchTerm.trim()) {
+        query = query.ilike('name', `%${searchTerm.trim()}%`);
+      }
+      if (type === 'manager_to_employee' && targetRole === 'employee') {
+        query = query.eq('manager_id', currentUser.id);
+      }
+      const { data, error } = await query;
+      if (error) return [];
+      return (data ?? []).map((p) => ({
+        id: p.id,
+        name: p.name,
+        role: p.role,
+      }));
+    },
+    []
+  );
+
+  const searchProfilesByName = useCallback(
+    async (searchTerm: string, excludeId?: string): Promise<ProfileOption[]> => {
+      if (!user?.tenantId) return [];
+      let query = supabase
+        .from('profiles')
+        .select('id, name, role')
+        .eq('tenant_id', user.tenantId)
+        .order('name')
+        .limit(20);
+      if (excludeId) query = query.neq('id', excludeId);
+      if (searchTerm.trim()) {
+        query = query.ilike('name', `%${searchTerm.trim()}%`);
+      }
+      const { data, error } = await query;
+      if (error) return [];
+      return (data ?? []).map((p) => ({
+        id: p.id,
+        name: p.name,
+        role: p.role,
+      }));
+    },
+    [user?.tenantId]
+  );
 
   const fetchEvaluationScores = useCallback(
     async (evaluationIds: string[], options?: { merge?: boolean }) => {
@@ -728,12 +929,84 @@ export default function Evaluation() {
     loadActiveTab();
   }, [user?.id, activeTab, loadActiveTab]);
 
+  useEffect(() => {
+    if (formType === 'self' || !formTargetRole || !user?.tenantId) {
+      setEvaluatedSearchResults([]);
+      return;
+    }
+    const t = setTimeout(() => {
+      setEvaluatedSearchLoading(true);
+      searchProfilesForEvaluation(
+        evaluatedSearchQuery,
+        formTargetRole,
+        formType,
+        { id: user.id, tenantId: user.tenantId, role: user.role }
+      ).then((list) => {
+        setEvaluatedSearchResults(list);
+        setEvaluatedSearchLoading(false);
+      });
+    }, 350);
+    return () => clearTimeout(t);
+  }, [evaluatedSearchQuery, formTargetRole, formType, user?.id, user?.tenantId, user?.role, searchProfilesForEvaluation]);
+
+  useEffect(() => {
+    if (!user?.tenantId) {
+      setEvaluatorSearchResults([]);
+      return;
+    }
+    const t = setTimeout(() => {
+      setEvaluatorSearchLoading(true);
+      searchProfilesByName(evaluatorSearchQuery, user.id).then((list) => {
+        setEvaluatorSearchResults(list);
+        setEvaluatorSearchLoading(false);
+      });
+    }, 350);
+    return () => clearTimeout(t);
+  }, [evaluatorSearchQuery, user?.id, user?.tenantId, searchProfilesByName]);
+
+  useEffect(() => {
+    if (!user?.tenantId) {
+      setSentEvaluatedSearchResults([]);
+      return;
+    }
+    const t = setTimeout(() => {
+      setSentEvaluatedSearchLoading(true);
+      searchProfilesByName(sentEvaluatedSearchQuery, user.id).then((list) => {
+        setSentEvaluatedSearchResults(list);
+        setSentEvaluatedSearchLoading(false);
+      });
+    }, 350);
+    return () => clearTimeout(t);
+  }, [sentEvaluatedSearchQuery, user?.id, user?.tenantId, searchProfilesByName]);
+
+  useEffect(() => {
+    if (!user?.tenantId) {
+      setTeamSelfEvalSearchResults([]);
+      return;
+    }
+    const t = setTimeout(() => {
+      setTeamSelfEvalSearchLoading(true);
+      searchProfilesByName(teamSelfEvalSearchQuery, user.id).then((list) => {
+        setTeamSelfEvalSearchResults(list);
+        setTeamSelfEvalSearchLoading(false);
+      });
+    }, 350);
+    return () => clearTimeout(t);
+  }, [teamSelfEvalSearchQuery, user?.id, user?.tenantId, searchProfilesByName]);
+
   const handleTabChange = (value: string) => {
     setActiveTab(value);
   };
 
   const applyReceivedFilters = useCallback(
-    (next: Partial<{ evaluatorId: string; type: string; periodId: string }>) => {
+    (
+      next: Partial<{
+        evaluatorId?: string;
+        evaluatorName?: string;
+        type?: string;
+        periodId?: string;
+      }>
+    ) => {
       setReceivedFilters((prev) => ({ ...prev, ...next }));
       setReceivedPage(1);
     },
@@ -741,7 +1014,14 @@ export default function Evaluation() {
   );
 
   const applySentFilters = useCallback(
-    (next: Partial<{ evaluatedId: string; type: string; periodId: string }>) => {
+    (
+      next: Partial<{
+        evaluatedId?: string;
+        evaluatedName?: string;
+        type?: string;
+        periodId?: string;
+      }>
+    ) => {
       setSentFilters((prev) => ({ ...prev, ...next }));
       setSentPage(1);
     },
@@ -749,7 +1029,13 @@ export default function Evaluation() {
   );
 
   const applyTeamSelfEvalFilters = useCallback(
-    (next: Partial<{ evaluatedId: string; periodId: string }>) => {
+    (
+      next: Partial<{
+        evaluatedId?: string;
+        evaluatedName?: string;
+        periodId?: string;
+      }>
+    ) => {
       setTeamSelfEvalFilters((prev) => ({ ...prev, ...next }));
       setTeamSelfEvalPage(1);
     },
@@ -758,18 +1044,21 @@ export default function Evaluation() {
 
   const clearReceivedFilters = () => {
     setReceivedFilters({});
+    setEvaluatorSearchQuery('');
     setReceivedPage(1);
     if (user?.id) fetchReceivedEvaluations(1, pageSize, {});
   };
 
   const clearSentFilters = () => {
     setSentFilters({});
+    setSentEvaluatedSearchQuery('');
     setSentPage(1);
     if (user?.id) fetchSentEvaluations(1, pageSize, {});
   };
 
   const clearTeamSelfEvalFilters = () => {
     setTeamSelfEvalFilters({});
+    setTeamSelfEvalSearchQuery('');
     setTeamSelfEvalPage(1);
     if (user?.tenantId) fetchTeamSelfEvaluations(1, pageSize, {});
   };
@@ -795,28 +1084,27 @@ export default function Evaluation() {
   const myProfile = peopleOptions.find((p) => p.id === user?.id);
   const myManagerId = myProfile?.manager_id ?? null;
 
-  const eligibleOptions = (() => {
-    if (!user) return [];
-    if (formType === 'self') return [{ id: user.id, name: user.name, role: user.role }];
-    const allowedRoles = getEligibleTargetRoles(user.role as UserRole, formType);
-    if (formType === 'manager_to_employee') {
-      return peopleOptions.filter(
-        (p) =>
-          p.id !== user?.id &&
-          ((p.role === 'employee' && p.manager_id === user?.id) || p.role === 'hr')
-      );
-    }
-    if (formType === 'employee_to_manager' || formType === 'hr_to_user' || formType === 'direct_feedback') {
-      return peopleOptions.filter(
-        (p) => p.id !== user?.id && allowedRoles.includes(p.role as UserRole)
-      );
-    }
-    return [];
+  const formTypeOptions: FormTypeOption[] = user
+    ? getFormTypeOptions(user.role as UserRole, { managerId: myManagerId })
+    : [];
+
+  const formTypeSelectValue = (() => {
+    const opt = formTypeOptions.find(
+      (o) => o.type === formType && (formType === 'self' || o.targetRole === formTargetRole)
+    );
+    return opt?.value ?? formTypeOptions[0]?.value ?? '';
   })();
 
-  const canShowType = (t: EvaluationType): boolean => {
-    if (!user) return false;
-    return canShowEvaluationType(user.role as UserRole, t, { managerId: myManagerId });
+  const handleFormTypeChange = (value: string) => {
+    const opt = formTypeOptions.find((o) => o.value === value);
+    if (!opt) return;
+    setFormType(opt.type);
+    setFormTargetRole(opt.targetRole);
+    setFormEvaluatedId('');
+    setFormEvaluatedRole(null);
+    setFormEvaluatedName('');
+    setEvaluatedSearchQuery('');
+    setEvaluatedSearchResults([]);
   };
 
   const handleSubmit = async () => {
@@ -828,10 +1116,17 @@ export default function Evaluation() {
       return;
     }
 
-    const evaluatedProfile = peopleOptions.find((p) => p.id === evaluatedId);
-    if (evaluatedProfile && !canEvaluate(user.role as UserRole, evaluatedProfile.role as UserRole, formType)) {
+    const evaluatedRole = formType === 'self' ? (user.role as UserRole) : formEvaluatedRole;
+    if (evaluatedRole != null && !canEvaluate(user.role as UserRole, evaluatedRole, formType)) {
       toast.error('Você não pode avaliar esta pessoa com o tipo selecionado.');
       return;
+    }
+    if (formType !== 'self' && evaluatedRole == null) {
+      const profile = peopleOptions.find((p) => p.id === evaluatedId) ?? evaluatedSearchResults.find((p) => p.id === evaluatedId);
+      if (profile && !canEvaluate(user.role as UserRole, profile.role as UserRole, formType)) {
+        toast.error('Você não pode avaliar esta pessoa com o tipo selecionado.');
+        return;
+      }
     }
 
     const isDirectFeedback = formType === 'direct_feedback';
@@ -931,6 +1226,8 @@ export default function Evaluation() {
 
       toast.success(isDirectFeedback ? 'Feedback enviado!' : 'Avaliação enviada!');
       setFormEvaluatedId('');
+      setFormEvaluatedRole(null);
+      setFormEvaluatedName('');
       setFormPeriodId('none');
       setFormScores({});
       setFormComments({});
@@ -984,22 +1281,29 @@ export default function Evaluation() {
                 </h2>
                 <div className="flex flex-wrap items-center gap-2">
                   <Label className="text-sm text-muted-foreground whitespace-nowrap">Avaliador</Label>
-                  <Select
-                    value={receivedFilters.evaluatorId ?? 'all'}
-                    onValueChange={(v) => applyReceivedFilters({ evaluatorId: v === 'all' ? undefined : v })}
-                  >
-                    <SelectTrigger className="h-9 w-[180px] sm:w-[200px]">
-                      <SelectValue placeholder="Todos" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      {peopleOptions.filter((p) => p.id !== user?.id).map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+
+                  <EvaluatedAsyncCombobox
+                    selectedId={receivedFilters.evaluatorId ?? ''}
+                    selectedName={
+                      receivedFilters.evaluatorName ??
+                      (receivedFilters.evaluatorId
+                        ? peopleOptions.find((p) => p.id === receivedFilters.evaluatorId)?.name
+                        : '') ??
+                      ''
+                    }
+                    searchQuery={evaluatorSearchQuery}
+                    onSearchQueryChange={setEvaluatorSearchQuery}
+                    searchResults={evaluatorSearchResults}
+                    searchLoading={evaluatorSearchLoading}
+                    onSelect={(id, _role) => {
+                      const name = id ? evaluatorSearchResults.find((p) => p.id === id)?.name : undefined;
+                      applyReceivedFilters({ evaluatorId: id || undefined, evaluatorName: name });
+                      setEvaluatorSearchQuery('');
+                    }}
+                    placeholder="Todos"
+                  />
+
+
                   <Label className="text-sm text-muted-foreground whitespace-nowrap ml-2">Tipo</Label>
                   <Select
                     value={receivedFilters.type ?? 'all'}
@@ -1042,7 +1346,11 @@ export default function Evaluation() {
                 </div>
               </div>
               {loading ? (
-                <div className="card-elevated p-8 text-center text-muted-foreground">Carregando...</div>
+                <div className="space-y-3">
+                  {Array.from({ length: pageSize }, (_, i) => (
+                    <EvaluationTimelineCard key={`skeleton-received-${i}`} isLoading />
+                  ))}
+                </div>
               ) : receivedEvaluations.length === 0 ? (
                 <div className="card-elevated p-12 text-center text-muted-foreground">
                   <MessageSquare className="w-12 h-12 mx-auto mb-4 opacity-50" />
@@ -1080,43 +1388,39 @@ export default function Evaluation() {
             <div className="card-elevated p-6 space-y-6">
               <div className="space-y-2">
                 <Label>Tipo de avaliação</Label>
-                <Select value={formType} onValueChange={(v) => { setFormType(v as EvaluationType); setFormEvaluatedId(''); }}>
+                <Select value={formTypeSelectValue} onValueChange={handleFormTypeChange}>
                   <SelectTrigger className="max-w-xs">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {(['self', 'employee_to_manager', 'manager_to_employee', 'hr_to_user', 'direct_feedback'] as EvaluationType[])
-                      .filter(canShowType)
-                      .map((t) => (
-                        <SelectItem key={t} value={t}>
-                          {EVALUATION_TYPE_LABELS[t]}
-                        </SelectItem>
-                      ))}
+                    {formTypeOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              {formType !== 'self' && (
-                <div className="space-y-2">
+              {formType !== 'self' && formTargetRole != null && (
+                <div className="space-y-2 flex flex-col gap-2">
                   <Label>Avaliado</Label>
-                  <Select
-                    value={formEvaluatedId || '__none__'}
-                    onValueChange={(v) => setFormEvaluatedId(v === '__none__' ? '' : v)}
-                  >
-                    <SelectTrigger className="max-w-xs">
-                      <SelectValue placeholder={eligibleOptions.length === 0 ? 'Carregando...' : 'Selecione...'} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">
-                        {eligibleOptions.length === 0 ? 'Nenhum disponível' : 'Selecione...'}
-                      </SelectItem>
-                      {eligibleOptions.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <EvaluatedAsyncCombobox
+                    selectedId={formEvaluatedId}
+                    selectedName={formEvaluatedName}
+                    searchQuery={evaluatedSearchQuery}
+                    onSearchQueryChange={setEvaluatedSearchQuery}
+                    searchResults={evaluatedSearchResults}
+                    searchLoading={evaluatedSearchLoading}
+                    onSelect={(id, role) => {
+                      setFormEvaluatedId(id);
+                      setFormEvaluatedRole(id ? (role as UserRole) : null);
+                      const chosen = id ? evaluatedSearchResults.find((p) => p.id === id) : null;
+                      setFormEvaluatedName(chosen?.name ?? '');
+                      setEvaluatedSearchQuery('');
+                    }}
+                    placeholder="Buscar por nome..."
+                  />
                 </div>
               )}
 
@@ -1196,12 +1500,28 @@ export default function Evaluation() {
                 </h2>
                 <div className="flex flex-wrap items-center gap-2">
                   <Label className="text-sm text-muted-foreground whitespace-nowrap">Avaliado</Label>
-                  <EvaluatedFilterCombobox
-                    value={sentFilters.evaluatedId}
-                    onValueChange={(id) => applySentFilters({ evaluatedId: id })}
-                    options={peopleOptions.filter((p) => p.id !== user?.id)}
+
+                  <EvaluatedAsyncCombobox
+                    selectedId={sentFilters.evaluatedId ?? ''}
+                    selectedName={
+                      sentFilters.evaluatedName ??
+                      (sentFilters.evaluatedId
+                        ? peopleOptions.find((p) => p.id === sentFilters.evaluatedId)?.name
+                        : '') ??
+                      ''
+                    }
+                    searchQuery={sentEvaluatedSearchQuery}
+                    onSearchQueryChange={setSentEvaluatedSearchQuery}
+                    searchResults={sentEvaluatedSearchResults}
+                    searchLoading={sentEvaluatedSearchLoading}
+                    onSelect={(id, _role) => {
+                      const name = id ? sentEvaluatedSearchResults.find((p) => p.id === id)?.name : undefined;
+                      applySentFilters({ evaluatedId: id || undefined, evaluatedName: name });
+                      setSentEvaluatedSearchQuery('');
+                    }}
                     placeholder="Todos"
                   />
+
                   <Label className="text-sm text-muted-foreground whitespace-nowrap ml-2">Tipo</Label>
                   <Select
                     value={sentFilters.type ?? 'all'}
@@ -1244,7 +1564,11 @@ export default function Evaluation() {
                 </div>
               </div>
               {loading ? (
-                <div className="card-elevated p-8 text-center text-muted-foreground">Carregando...</div>
+                <div className="space-y-3">
+                  {Array.from({ length: pageSize }, (_, i) => (
+                    <EvaluationTimelineCard key={`skeleton-sent-${i}`} isLoading />
+                  ))}
+                </div>
               ) : sentEvaluations.length === 0 ? (
                 <div className="card-elevated p-12 text-center text-muted-foreground">
                   <History className="w-12 h-12 mx-auto mb-4 opacity-50" />
@@ -1302,7 +1626,11 @@ export default function Evaluation() {
                 </div>
               </div>
               {loading ? (
-                <div className="card-elevated p-8 text-center text-muted-foreground">Carregando...</div>
+                <div className="space-y-3">
+                  {Array.from({ length: pageSize }, (_, i) => (
+                    <EvaluationTimelineCard key={`skeleton-self-${i}`} isLoading />
+                  ))}
+                </div>
               ) : selfEvaluations.length === 0 ? (
                 <div className="card-elevated p-12 text-center text-muted-foreground">
                   <UserCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />
@@ -1340,14 +1668,29 @@ export default function Evaluation() {
             <div className="space-y-4">
               <div className="flex flex-col gap-4">
                 <h2 className="font-medium text-muted-foreground text-sm uppercase tracking-wide">
-                  {isHR() ? 'Autoavaliações do tenant' : 'Autoavaliações da equipe'}
+                  {isHR() ? 'Autoavaliações da empresa' : 'Autoavaliações da equipe'}
                 </h2>
                 <div className="flex flex-wrap items-center gap-2">
                   <Label className="text-sm text-muted-foreground whitespace-nowrap">Avaliado</Label>
-                  <EvaluatedFilterCombobox
-                    value={teamSelfEvalFilters.evaluatedId}
-                    onValueChange={(id) => applyTeamSelfEvalFilters({ evaluatedId: id })}
-                    options={peopleOptions.filter((p) => p.id !== user?.id)}
+
+                  <EvaluatedAsyncCombobox
+                    selectedId={teamSelfEvalFilters.evaluatedId ?? ''}
+                    selectedName={
+                      teamSelfEvalFilters.evaluatedName ??
+                      (teamSelfEvalFilters.evaluatedId
+                        ? peopleOptions.find((p) => p.id === teamSelfEvalFilters.evaluatedId)?.name
+                        : '') ??
+                      ''
+                    }
+                    searchQuery={teamSelfEvalSearchQuery}
+                    onSearchQueryChange={setTeamSelfEvalSearchQuery}
+                    searchResults={teamSelfEvalSearchResults}
+                    searchLoading={teamSelfEvalSearchLoading}
+                    onSelect={(id, _role) => {
+                      const name = id ? teamSelfEvalSearchResults.find((p) => p.id === id)?.name : undefined;
+                      applyTeamSelfEvalFilters({ evaluatedId: id || undefined, evaluatedName: name });
+                      setTeamSelfEvalSearchQuery('');
+                    }}
                     placeholder="Todos"
                   />
                   <Label className="text-sm text-muted-foreground whitespace-nowrap ml-2">Período</Label>
@@ -1375,7 +1718,11 @@ export default function Evaluation() {
                 </div>
               </div>
               {loading ? (
-                <div className="card-elevated p-8 text-center text-muted-foreground">Carregando...</div>
+                <div className="space-y-3">
+                  {Array.from({ length: pageSize }, (_, i) => (
+                    <EvaluationTimelineCard key={`skeleton-team-${i}`} isLoading />
+                  ))}
+                </div>
               ) : teamSelfEvaluations.length === 0 ? (
                 <div className="card-elevated p-12 text-center text-muted-foreground">
                   <UserCircle className="w-12 h-12 mx-auto mb-4 opacity-50" />

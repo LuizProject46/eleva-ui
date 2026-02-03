@@ -60,3 +60,52 @@ export function canEvaluate(
   const allowed = getEligibleTargetRoles(evaluatorRole, type);
   return allowed.includes(evaluatedRole);
 }
+
+/** Label for (type, targetRole) in the form type dropdown */
+const FORM_TYPE_LABELS: Record<EvaluationType, Partial<Record<UserRole, string>>> = {
+  self: { employee: 'Autoavaliação', manager: 'Autoavaliação', hr: 'Autoavaliação' },
+  manager_to_employee: { employee: 'Gestor → Colaborador', hr: 'Gestor → RH' },
+  employee_to_manager: { manager: 'Colaborador → Gestor', hr: 'Colaborador → RH' },
+  hr_to_user: { employee: 'RH → Colaborador', manager: 'RH → Gestor', hr: 'RH → RH' },
+  direct_feedback: {
+    employee: 'Feedback direto → Colaborador',
+    manager: 'Feedback direto → Gestor',
+    hr: 'Feedback direto → RH',
+  },
+};
+
+export interface FormTypeOption {
+  type: EvaluationType;
+  targetRole: UserRole;
+  label: string;
+  value: string;
+}
+
+/** Options for the "Tipo de avaliação" select: one per (type, targetRole) the user can choose. */
+export function getFormTypeOptions(
+  userRole: UserRole,
+  context?: { managerId?: string | null }
+): FormTypeOption[] {
+  const types: EvaluationType[] = [
+    'self',
+    'employee_to_manager',
+    'manager_to_employee',
+    'hr_to_user',
+    'direct_feedback',
+  ];
+  const options: FormTypeOption[] = [];
+  for (const type of types) {
+    if (!canShowEvaluationType(userRole, type, context)) continue;
+    const targetRoles = getEligibleTargetRoles(userRole, type);
+    for (const targetRole of targetRoles) {
+      const label = type === 'self' ? 'Autoavaliação' : (FORM_TYPE_LABELS[type][targetRole] ?? `${type}:${targetRole}`);
+      options.push({
+        type,
+        targetRole,
+        label,
+        value: `${type}:${targetRole}`,
+      });
+    }
+  }
+  return options;
+}
