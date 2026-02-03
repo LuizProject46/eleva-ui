@@ -106,7 +106,7 @@ export default function Login() {
       </div>
 
       {/* Right Panel - Login Form */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-background">
+      <div className="flex-1 flex items-center justify-center p-4 sm:p-8 bg-background">
         <div className="w-full max-w-md animate-fade-in">
           <div className="text-center mb-8 lg:hidden flex justify-center">
             {brand.logoUrl ? (

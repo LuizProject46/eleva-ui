@@ -476,8 +476,9 @@ export default function Colaboradores() {
         <div className="card-elevated overflow-hidden">
           {loading ? (
             /** Loading skeleton */
-            <div className="w-full rounded-lg border bg-background p-4">
-              <Table>
+            <div className="overflow-x-auto">
+              <div className="w-full min-w-0 rounded-lg border bg-background p-4">
+                <Table>
                 {/* Header */}
                 <TableHeader>
                   <TableRow>
@@ -525,6 +526,7 @@ export default function Colaboradores() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
             </div>
           ) : profiles.length === 0 ? (
             <div className="p-12 text-center text-muted-foreground">
@@ -533,7 +535,8 @@ export default function Colaboradores() {
             </div>
           ) : (
             <>
-              <Table>
+              <div className="overflow-x-auto">
+                <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>
@@ -611,6 +614,7 @@ export default function Colaboradores() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-4 border-t">
                 <p className="text-sm text-muted-foreground">
                   {startRow}–{endRow} de {totalCount}

@@ -1,10 +1,11 @@
+import { useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Users, 
+import {
+  LayoutDashboard,
+  Users,
   UserPlus,
-  ClipboardCheck, 
-  UserCheck, 
+  ClipboardCheck,
+  UserCheck,
   Brain,
   LogOut,
   Settings,
@@ -15,8 +16,10 @@ import {
   Lock,
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBrand } from '@/contexts/BrandContext';
+import { useMobileMenu } from '@/contexts/MobileMenuContext';
 import { cn } from '@/lib/utils';
 import facholiLogo from '@/assets/facholi-logo.png';
 
@@ -70,22 +73,22 @@ function getRoleLabel(role: string) {
   return 'Colaborador';
 }
 
-export function Sidebar() {
+function SidebarContent() {
   const { user, logout } = useAuth();
   const { brand } = useBrand();
   const location = useLocation();
-  
+
   const navItems = getNavItems(user?.role ?? 'employee');
   const roleLabel = getRoleLabel(user?.role ?? 'employee');
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 sidebar-gradient border-r border-sidebar-border flex flex-col">
+    <>
       {/* Logo */}
       <div className="p-6 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
           {brand.logoUrl ? (
-            <img 
-              src={facholiLogo} 
+            <img
+              src={facholiLogo}
               alt={brand.companyName}
               className="h-10 w-auto object-contain"
             />
@@ -97,9 +100,7 @@ export function Sidebar() {
             </div>
           )}
           <div>
-            <p className="text-xs text-sidebar-foreground/60">
-              Portal RH
-            </p>
+            <p className="text-xs text-sidebar-foreground/60">Portal RH</p>
           </div>
         </div>
       </div>
@@ -132,48 +133,48 @@ export function Sidebar() {
               key={item.path}
               to={item.path}
               className={cn(
-                "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group",
-                isActive 
-                  ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-lg" 
-                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
+                'flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group',
+                isActive
+                  ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-lg'
+                  : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
               )}
             >
-              <item.icon className={cn(
-                "w-5 h-5 transition-transform duration-200",
-                isActive ? "" : "group-hover:scale-110"
-              )} />
+              <item.icon
+                className={cn(
+                  'w-5 h-5 transition-transform duration-200',
+                  isActive ? '' : 'group-hover:scale-110'
+                )}
+              />
               <span className="font-medium text-sm">{item.label}</span>
-              {isActive && (
-                <ChevronRight className="w-4 h-4 ml-auto" />
-              )}
+              {isActive && <ChevronRight className="w-4 h-4 ml-auto" />}
             </Link>
           );
         })}
 
         {/* Itens em breve */}
         <div className="mt-4 pt-3 border-t border-sidebar-border/50 space-y-1">
-        {comingSoonNavItems
-          .filter((item) => !comingSoonConfig[item.id].enabled)
-          .map((item) => {
-            const Icon = item.icon;
-            return (
-              <Tooltip key={item.id}>
-                <TooltipTrigger asChild>
-                  <div
-                    className="flex items-center gap-3 px-4 py-3 rounded-xl text-sidebar-foreground/50 opacity-60 cursor-not-allowed"
-                    aria-disabled
-                  >
-                    <Icon className="w-5 h-5 shrink-0" />
-                    <span className="font-medium text-sm flex-1">{item.label}</span>
-                    <Lock className="w-4 h-4 ml-auto opacity-70 shrink-0" />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="right">
-                  Em breve
-                </TooltipContent>
-              </Tooltip>
-            );
-          })}
+          {comingSoonNavItems
+            .filter((item) => !comingSoonConfig[item.id].enabled)
+            .map((item) => {
+              const Icon = item.icon;
+              return (
+                <Tooltip key={item.id}>
+                  <TooltipTrigger asChild>
+                    <div
+                      className="flex items-center gap-3 px-4 py-3 rounded-xl text-sidebar-foreground/50 opacity-60 cursor-not-allowed"
+                      aria-disabled
+                    >
+                      <Icon className="w-5 h-5 shrink-0" />
+                      <span className="font-medium text-sm flex-1">{item.label}</span>
+                      <Lock className="w-4 h-4 ml-auto opacity-70 shrink-0" />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    Em breve
+                  </TooltipContent>
+                </Tooltip>
+              );
+            })}
         </div>
       </nav>
 
@@ -194,6 +195,38 @@ export function Sidebar() {
           <span className="font-medium text-sm">Sair</span>
         </button>
       </div>
+    </>
+  );
+}
+
+export function Sidebar() {
+  const { isMobile, mobileMenuOpen, setMobileMenuOpen } = useMobileMenu();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (isMobile) {
+      setMobileMenuOpen(false);
+    }
+  }, [isMobile, location.pathname, setMobileMenuOpen]);
+
+  if (isMobile) {
+    return (
+      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+        <SheetContent
+          side="left"
+          className="w-64 max-w-[85vw] h-full p-0 gap-0 border-r border-sidebar-border rounded-r-lg flex flex-col sidebar-gradient"
+        >
+          <div className="flex flex-col flex-1 h-full min-h-0">
+            <SidebarContent />
+          </div>
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
+  return (
+    <aside className="fixed left-0 top-0 h-screen w-64 sidebar-gradient border-r border-sidebar-border flex flex-col">
+      <SidebarContent />
     </aside>
   );
 }

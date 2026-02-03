@@ -76,7 +76,7 @@ export default function ResetPassword() {
     return (
       <div className="min-h-screen flex">
         <div className="hidden lg:flex lg:w-1/2 gradient-hero relative overflow-hidden" />
-        <div className="flex-1 flex items-center justify-center p-8 bg-background">
+        <div className="flex-1 flex items-center justify-center p-4 sm:p-8 bg-background">
           <div className="w-full max-w-md text-center">
             <div className="w-16 h-16 rounded-2xl bg-destructive/10 flex items-center justify-center mx-auto mb-6">
               <KeyRound className="w-8 h-8 text-destructive" />
@@ -134,7 +134,7 @@ export default function ResetPassword() {
         <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-white/5" />
       </div>
 
-      <div className="flex-1 flex items-center justify-center p-8 bg-background">
+      <div className="flex-1 flex items-center justify-center p-4 sm:p-8 bg-background">
         <div className="w-full max-w-md animate-fade-in">
           <div className="text-center mb-8 lg:hidden">
             <div className="w-14 h-14 rounded-2xl gradient-hero flex items-center justify-center mx-auto mb-4">
