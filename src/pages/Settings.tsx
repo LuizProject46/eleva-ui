@@ -1,48 +1,104 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBrand } from '@/contexts/BrandContext';
+import { useTenant } from '@/contexts/TenantContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { 
-  Building2,
-  Palette,
-  User,
-  Save,
-  Upload
-} from 'lucide-react';
-import facholiLogo from '@/assets/facholi-logo.png';
+import { Building2, User, Save } from 'lucide-react';
+import { toast } from 'sonner';
+import { isHexColor, normalizeHex } from '@/lib/branding';
+import { ImageUpload } from '@/components/settings/ImageUpload';
+import { supabase } from '@/lib/supabase';
 
-const colorPresets = [
-  { name: 'Teal', primary: '168 80% 28%', accent: '24 95% 60%' },
-  { name: 'Blue', primary: '220 70% 50%', accent: '35 100% 55%' },
-  { name: 'Purple', primary: '270 60% 50%', accent: '330 80% 60%' },
-  { name: 'Green', primary: '150 60% 40%', accent: '40 95% 55%' },
-  { name: 'Orange', primary: '25 90% 50%', accent: '200 80% 50%' },
-];
+function normalizeHexInput(value: string): string {
+  const v = value.trim().replace(/^#/, '');
+  if (/^[0-9A-Fa-f]{6}$/.test(v)) return `#${v}`;
+  if (/^[0-9A-Fa-f]{3}$/.test(v)) {
+    const r = v[0]! + v[0];
+    const g = v[1]! + v[1];
+    const b = v[2]! + v[2];
+    return `#${r}${g}${b}`;
+  }
+  return value;
+}
 
 export default function Settings() {
   const { user, isHR } = useAuth();
   const { brand, updateBrand } = useBrand();
+  const { tenant, refetchTenant } = useTenant();
   const showBrandSettings = isHR();
-  
-  const [companyName, setCompanyName] = useState(brand.companyName);
-  const [selectedPreset, setSelectedPreset] = useState(0);
 
-  const handleSaveBrand = () => {
-    const preset = colorPresets[selectedPreset];
-    updateBrand({
-      companyName,
-      primaryColor: preset.primary,
-      accentColor: preset.accent,
-    });
+  const [companyName, setCompanyName] = useState(brand.companyName);
+  const [primaryColorHex, setPrimaryColorHex] = useState(brand.primaryColor);
+  const [primaryColorError, setPrimaryColorError] = useState<string | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | undefined>(brand.logoUrl);
+  const [loginCoverUrl, setLoginCoverUrl] = useState<string | undefined>(brand.loginCoverUrl);
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    setCompanyName(brand.companyName);
+    setPrimaryColorHex(brand.primaryColor);
+    setLogoUrl(brand.logoUrl);
+    setLoginCoverUrl(brand.loginCoverUrl);
+  }, [brand.companyName, brand.primaryColor, brand.logoUrl, brand.loginCoverUrl]);
+
+  const handlePrimaryColorChange = (value: string) => {
+    setPrimaryColorHex(value);
+    if (value.trim() && !isHexColor(value)) {
+      setPrimaryColorError('Cor inválida. Use hex (ex: #2d7a4a).');
+    } else {
+      setPrimaryColorError(null);
+    }
+  };
+
+  const handleSaveBrand = async () => {
+    if (!showBrandSettings || !tenant?.id) return;
+
+    const hex = primaryColorHex.trim() ? normalizeHexInput(primaryColorHex) : brand.primaryColor;
+    if (primaryColorHex.trim() && !isHexColor(primaryColorHex)) {
+      setPrimaryColorError('Cor inválida. Use hex (ex: #2d7a4a).');
+      return;
+    }
+
+    setIsSaving(true);
+    setPrimaryColorError(null);
+
+    try {
+      const { error } = await supabase
+        .from('tenants')
+        .update({
+          company_name: companyName,
+          primary_color: hex,
+          logo_url: logoUrl ?? null,
+          login_cover_url: loginCoverUrl ?? null,
+        })
+        .eq('id', tenant.id);
+
+      if (error) {
+        toast.error(error.message ?? 'Erro ao salvar');
+        return;
+      }
+
+      updateBrand({
+        companyName,
+        primaryColor: hex,
+        logoUrl,
+        loginCoverUrl,
+      });
+      await refetchTenant();
+      toast.success('Alterações salvas');
+    } catch {
+      toast.error('Erro ao salvar');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
     <MainLayout>
       <div className="max-w-4xl animate-fade-in">
-        {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-display font-bold text-foreground">
             Configurações
@@ -53,7 +109,6 @@ export default function Settings() {
         </div>
 
         <div className="space-y-6">
-          {/* Profile Settings */}
           <div className="card-elevated p-6">
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2 rounded-lg bg-primary/10">
@@ -84,8 +139,7 @@ export default function Settings() {
             </div>
           </div>
 
-          {/* Brand Settings (RH only) */}
-          {showBrandSettings && (
+          {showBrandSettings && tenant?.id && (
             <div className="card-elevated p-6">
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 rounded-lg bg-primary/10">
@@ -93,7 +147,7 @@ export default function Settings() {
                 </div>
                 <div>
                   <h2 className="font-display font-semibold text-foreground">
-                    Marca da Empresa
+                    Branding / Whitelabel
                   </h2>
                   <p className="text-sm text-muted-foreground">
                     Personalize a identidade visual da plataforma
@@ -105,66 +159,59 @@ export default function Settings() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <Label>Nome da Empresa</Label>
-                    <Input 
+                    <Input
                       value={companyName}
                       onChange={(e) => setCompanyName(e.target.value)}
                       placeholder="Nome exibido na plataforma"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Logotipo</Label>
-                    <div className="flex items-center gap-4">
-                      <div className="h-16 px-3 rounded-xl bg-white flex items-center justify-center border border-border">
-                        <img 
-                          src={facholiLogo} 
-                          alt={companyName}
-                          className="h-10 w-auto object-contain"
-                        />
-                      </div>
-                      <Button variant="outline" size="sm">
-                        <Upload className="w-4 h-4 mr-2" />
-                        Enviar Logo
-                      </Button>
+                    <Label>Cor primária</Label>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <input
+                        type="color"
+                        value={normalizeHex(primaryColorHex) ?? '#2d7a4a'}
+                        onChange={(e) => handlePrimaryColorChange(e.target.value)}
+                        className="h-10 w-14 rounded-lg border border-border cursor-pointer bg-transparent shrink-0 [&::-webkit-color-swatch-wrapper]:p-0.5 [&::-webkit-color-swatch]:rounded-md [&::-moz-color-swatch]:rounded-md"
+                        aria-label="Selecionar cor primária"
+                      />
+                      <Input
+                        value={primaryColorHex}
+                        onChange={(e) => handlePrimaryColorChange(e.target.value)}
+                        placeholder="#2d7a4a"
+                        className="font-mono w-32"
+                      />
                     </div>
+                    {primaryColorError && (
+                      <p className="text-sm text-destructive">{primaryColorError}</p>
+                    )}
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Palette className="w-4 h-4 text-muted-foreground" />
-                    <Label>Tema de Cores</Label>
-                  </div>
-                  <div className="grid grid-cols-5 gap-3">
-                    {colorPresets.map((preset, index) => (
-                      <button
-                        key={preset.name}
-                        onClick={() => setSelectedPreset(index)}
-                        className={`p-4 rounded-xl border-2 transition-all duration-200 ${
-                          selectedPreset === index
-                            ? 'border-foreground shadow-md'
-                            : 'border-border hover:border-muted-foreground/30'
-                        }`}
-                      >
-                        <div 
-                          className="w-full h-8 rounded-lg mb-2"
-                          style={{ background: `hsl(${preset.primary})` }}
-                        />
-                        <div 
-                          className="w-full h-2 rounded"
-                          style={{ background: `hsl(${preset.accent})` }}
-                        />
-                        <p className="text-xs text-center mt-2 text-muted-foreground">
-                          {preset.name}
-                        </p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <ImageUpload
+                  tenantId={tenant.id}
+                  pathPrefix="logo"
+                  currentUrl={logoUrl}
+                  onUploadSuccess={setLogoUrl}
+                  label="Logotipo"
+                />
+
+                <ImageUpload
+                  tenantId={tenant.id}
+                  pathPrefix="login-cover"
+                  currentUrl={loginCoverUrl}
+                  onUploadSuccess={setLoginCoverUrl}
+                  label="Imagem de capa do login"
+                />
 
                 <div className="flex justify-end pt-4 border-t border-border">
-                  <Button className="gradient-hero" onClick={handleSaveBrand}>
+                  <Button
+                    onClick={handleSaveBrand}
+                    disabled={isSaving || !!primaryColorError}
+                    style={{ background: 'var(--gradient-hero)' }}
+                  >
                     <Save className="w-4 h-4 mr-2" />
-                    Salvar Alterações
+                    {isSaving ? 'Salvando...' : 'Salvar Alterações'}
                   </Button>
                 </div>
               </div>

@@ -1,11 +1,21 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useTenant } from '@/contexts/TenantContext';
+import {
+  applyBrandingToCss,
+  saveBrandingCache,
+  isHexColor,
+  hslToHex,
+  DEFAULT_PRIMARY_HEX,
+  DEFAULT_ACCENT_HEX,
+  type BrandingConfig,
+} from '@/lib/branding';
 
 export interface BrandConfig {
   companyName: string;
   logoUrl?: string;
   primaryColor: string;
   accentColor: string;
+  loginCoverUrl?: string;
 }
 
 interface BrandContextType {
@@ -16,21 +26,26 @@ interface BrandContextType {
 const defaultBrand: BrandConfig = {
   companyName: 'Facholi',
   logoUrl: '/assets/facholi-logo.png',
-  primaryColor: '145 75% 38%',
-  accentColor: '24 95% 60%',
+  primaryColor: DEFAULT_PRIMARY_HEX,
+  accentColor: DEFAULT_ACCENT_HEX,
 };
 
 const BrandContext = createContext<BrandContextType | undefined>(undefined);
 
-function applyBrandToCss(config: Partial<BrandConfig>) {
-  if (config.primaryColor) {
-    document.documentElement.style.setProperty('--brand-primary', config.primaryColor);
-    document.documentElement.style.setProperty('--primary', config.primaryColor);
+function tenantPrimaryToHex(value: string): string {
+  if (isHexColor(value)) {
+    const normalized = value.trim().startsWith('#') ? value.trim() : `#${value.trim()}`;
+    return normalized.length === 4 ? normalized : normalized;
   }
-  if (config.accentColor) {
-    document.documentElement.style.setProperty('--brand-accent', config.accentColor);
-    document.documentElement.style.setProperty('--accent', config.accentColor);
+  return hslToHex(value);
+}
+
+function tenantAccentToHex(value: string): string {
+  if (isHexColor(value)) {
+    const normalized = value.trim().startsWith('#') ? value.trim() : `#${value.trim()}`;
+    return normalized;
   }
+  return hslToHex(value);
 }
 
 export function BrandProvider({ children }: { children: ReactNode }) {
@@ -39,21 +54,52 @@ export function BrandProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (tenant) {
+      const primaryHex = tenantPrimaryToHex(tenant.primaryColor);
+      const accentHex = tenantAccentToHex(tenant.accentColor);
       const newBrand: BrandConfig = {
         companyName: tenant.companyName,
         logoUrl: tenant.logoUrl ?? undefined,
-        primaryColor: tenant.primaryColor,
-        accentColor: tenant.accentColor,
+        primaryColor: primaryHex,
+        accentColor: accentHex,
+        loginCoverUrl: tenant.loginCoverUrl ?? undefined,
       };
       setBrand(newBrand);
-      applyBrandToCss(newBrand);
+      applyBrandingToCss({
+        primaryColor: primaryHex,
+        accentColor: accentHex,
+        logoUrl: newBrand.logoUrl,
+        loginCoverUrl: newBrand.loginCoverUrl,
+        companyName: newBrand.companyName,
+      });
+      saveBrandingCache({
+        primaryColor: primaryHex,
+        accentColor: accentHex,
+        logoUrl: newBrand.logoUrl,
+        loginCoverUrl: newBrand.loginCoverUrl,
+        companyName: newBrand.companyName,
+      });
     }
   }, [tenant]);
 
   const updateBrand = (config: Partial<BrandConfig>) => {
-    setBrand(prev => {
+    setBrand((prev) => {
       const next = { ...prev, ...config };
-      applyBrandToCss(config);
+      applyBrandingToCss({
+        primaryColor: next.primaryColor,
+        accentColor: next.accentColor,
+        logoUrl: next.logoUrl,
+        loginCoverUrl: next.loginCoverUrl,
+        companyName: next.companyName,
+      });
+      if (next.primaryColor || next.accentColor || next.logoUrl !== undefined || next.loginCoverUrl !== undefined || next.companyName !== undefined) {
+        saveBrandingCache({
+          primaryColor: next.primaryColor ?? DEFAULT_PRIMARY_HEX,
+          accentColor: next.accentColor ?? DEFAULT_ACCENT_HEX,
+          logoUrl: next.logoUrl,
+          loginCoverUrl: next.loginCoverUrl,
+          companyName: next.companyName,
+        });
+      }
       return next;
     });
   };

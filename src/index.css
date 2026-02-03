@@ -8,6 +8,8 @@
 
 @layer base {
   :root {
+    /* Primary color (hex) - single source of truth; fallback when no custom branding */
+    --color-primary: #2d7a4a;
     /* Brand Colors - Facholi Green */
     --brand-primary: 145 75% 38%;
     --brand-primary-light: 145 65% 50%;

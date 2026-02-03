@@ -73,9 +73,12 @@ export default function ResetPassword() {
   }
 
   if (!isAuthenticated) {
+    const leftPanelStyle = brand.loginCoverUrl
+      ? { backgroundImage: `url(${brand.loginCoverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' as const }
+      : { backgroundColor: 'var(--color-primary)' };
     return (
       <div className="min-h-screen flex">
-        <div className="hidden lg:flex lg:w-1/2 gradient-hero relative overflow-hidden" />
+        <div className="hidden lg:flex lg:w-1/2 min-h-screen relative overflow-hidden" style={leftPanelStyle} />
         <div className="flex-1 flex items-center justify-center p-4 sm:p-8 bg-background">
           <div className="w-full max-w-md text-center">
             <div className="w-16 h-16 rounded-2xl bg-destructive/10 flex items-center justify-center mx-auto mb-6">
@@ -96,10 +99,19 @@ export default function ResetPassword() {
     );
   }
 
+  const leftPanelStyle = brand.loginCoverUrl
+    ? { backgroundImage: `url(${brand.loginCoverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' as const }
+    : { backgroundColor: 'var(--color-primary)' };
+
   return (
     <div className="min-h-screen flex">
-      <div className="hidden lg:flex lg:w-1/2 gradient-hero relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0djItSDI0di0yaDEyek0zNiAyNHYySDI0di0yaDEyeiIvPjwvZz48L2c+PC9zdmc+')] opacity-30" />
+      <div
+        className="hidden lg:flex lg:w-1/2 min-h-screen relative overflow-hidden"
+        style={leftPanelStyle}
+      >
+        {!brand.loginCoverUrl && (
+          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0djItSDI0di0yaDEyek0zNiAyNHYySDI0di0yaDEyeiIvPjwvZz48L2c+PC9zdmc+')] opacity-30" />
+        )}
         <div className="relative z-10 flex flex-col justify-center px-16 text-white">
           <div className="mb-12">
             <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center mb-6">
@@ -131,13 +143,15 @@ export default function ResetPassword() {
             </div>
           </div>
         </div>
-        <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-white/5" />
+        {!brand.loginCoverUrl && (
+          <div className="absolute -bottom-32 -right-32 w-96 h-96 rounded-full bg-white/5" />
+        )}
       </div>
 
       <div className="flex-1 flex items-center justify-center p-4 sm:p-8 bg-background">
         <div className="w-full max-w-md animate-fade-in">
           <div className="text-center mb-8 lg:hidden">
-            <div className="w-14 h-14 rounded-2xl gradient-hero flex items-center justify-center mx-auto mb-4">
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: 'var(--color-primary)' }}>
               <span className="text-2xl font-bold text-white">{brand.companyName.charAt(0)}</span>
             </div>
             <h1 className="text-2xl font-display font-bold text-foreground">{brand.companyName}</h1>

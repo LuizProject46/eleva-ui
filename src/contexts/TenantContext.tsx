@@ -6,6 +6,7 @@ export interface TenantConfig {
   slug: string;
   companyName: string;
   logoUrl?: string | null;
+  loginCoverUrl?: string | null;
   primaryColor: string;
   accentColor: string;
   isActive: boolean;
@@ -16,6 +17,7 @@ interface TenantContextType {
   slug: string | null;
   isLoading: boolean;
   error: string | null;
+  refetchTenant: () => Promise<void>;
 }
 
 const DEFAULT_SLUG = 'eleva-ui-vercel';
@@ -62,7 +64,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   const fetchTenant = useCallback(async (tenantSlug: string): Promise<TenantConfig | null> => {
     const { data, error: fetchError } = await supabase
       .from('tenants')
-      .select('id, slug, company_name, logo_url, primary_color, accent_color, is_active')
+      .select('id, slug, company_name, logo_url, login_cover_url, primary_color, accent_color, is_active')
       .eq('slug', tenantSlug)
       .eq('is_active', true)
       .maybeSingle();
@@ -74,43 +76,48 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       slug: data.slug,
       companyName: data.company_name,
       logoUrl: data.logo_url,
+      loginCoverUrl: data.login_cover_url ?? undefined,
       primaryColor: data.primary_color ?? defaultTenantConfig.primaryColor,
       accentColor: data.accent_color ?? defaultTenantConfig.accentColor,
       isActive: data.is_active ?? true,
     };
   }, []);
 
-  useEffect(() => {
-    const loadTenant = async () => {
-      const tenantSlug = getTenantSlugFromHost();
-      setSlug(tenantSlug);
-
-      try {
-        const config = await fetchTenant(tenantSlug);
-        if (config) {
-          setTenant(config);
-          setError(null);
-        } else {
-          setTenant({
-            ...defaultTenantConfig,
-            slug: tenantSlug,
-            companyName: tenantSlug.charAt(0).toUpperCase() + tenantSlug.slice(1),
-          });
-          setError(null);
-        }
-      } catch (err) {
-        setTenant({ ...defaultTenantConfig, slug: tenantSlug });
-        setError('Falha ao carregar configuração do tenant.');
-      } finally {
-        setIsLoading(false);
+  const loadTenant = useCallback(async () => {
+    const tenantSlug = getTenantSlugFromHost();
+    setSlug(tenantSlug);
+    try {
+      const config = await fetchTenant(tenantSlug);
+      if (config) {
+        setTenant(config);
+        setError(null);
+      } else {
+        setTenant({
+          ...defaultTenantConfig,
+          slug: tenantSlug,
+          companyName: tenantSlug.charAt(0).toUpperCase() + tenantSlug.slice(1),
+        });
+        setError(null);
       }
-    };
-
-    loadTenant();
+    } catch (err) {
+      setTenant({ ...defaultTenantConfig, slug: tenantSlug });
+      setError('Falha ao carregar configuração do tenant.');
+    } finally {
+      setIsLoading(false);
+    }
   }, [fetchTenant]);
 
+  useEffect(() => {
+    loadTenant();
+  }, [loadTenant]);
+
+  const refetchTenant = useCallback(async () => {
+    setIsLoading(true);
+    await loadTenant();
+  }, [loadTenant]);
+
   return (
-    <TenantContext.Provider value={{ tenant, slug, isLoading, error }}>
+    <TenantContext.Provider value={{ tenant, slug, isLoading, error, refetchTenant }}>
       {children}
     </TenantContext.Provider>
   );

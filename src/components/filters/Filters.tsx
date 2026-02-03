@@ -116,6 +116,15 @@ export function Filters({
     setSheetOpen(false);
   };
 
+  const activeFiltersCount = [
+    filterName.trim(),
+    filterEmail.trim(),
+    filterPosition.trim(),
+  ].filter(Boolean).length +
+    (filterDepartment !== 'all' ? 1 : 0) +
+    (filterManager !== 'all' ? 1 : 0) +
+    (filterActiveStatus !== 'all' ? 1 : 0);
+
   return (
     <div className="flex flex-wrap items-center gap-3">
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
@@ -123,9 +132,9 @@ export function Filters({
           <Button variant="outline" size="sm" className="h-9 gap-2">
             <SlidersHorizontal className="h-4 w-4" />
             Aplicar filtros
-            {hasActiveFilters && (
+            {hasActiveFilters && activeFiltersCount > 0 && (
               <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-medium text-primary-foreground">
-                •
+                {activeFiltersCount > 99 ? '99+' : activeFiltersCount}
               </span>
             )}
           </Button>

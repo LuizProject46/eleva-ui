@@ -9,6 +9,23 @@ export interface TenantBranding {
 const DEFAULT_PRIMARY = '#2d7a4a';
 const DEFAULT_ACCENT = '#f59e0b';
 
+function isHexColor(value: string): boolean {
+  const v = value.trim().replace(/^#/, '');
+  return /^[0-9A-Fa-f]{6}$/.test(v) || /^[0-9A-Fa-f]{3}$/.test(v);
+}
+
+function normalizeHex(hex: string): string {
+  const cleaned = hex.replace(/^#/, '').trim();
+  if (/^[0-9A-Fa-f]{6}$/.test(cleaned)) return `#${cleaned}`;
+  if (/^[0-9A-Fa-f]{3}$/.test(cleaned)) {
+    const r = cleaned[0]! + cleaned[0];
+    const g = cleaned[1]! + cleaned[1];
+    const b = cleaned[2]! + cleaned[2];
+    return `#${r}${g}${b}`;
+  }
+  return hex;
+}
+
 function hslToHex(hslStr: string): string {
   const match = hslStr.match(/(\d+)\s+(\d+)%\s+(\d+)%/);
   if (!match) return DEFAULT_PRIMARY;
@@ -55,11 +72,18 @@ export function parseTenantToBranding(tenant: {
       appUrl: siteUrl,
     };
   }
+  const primaryHex = tenant.primary_color
+    ? (isHexColor(tenant.primary_color) ? normalizeHex(tenant.primary_color) : hslToHex(tenant.primary_color))
+    : DEFAULT_PRIMARY;
+  const accentHex = tenant.accent_color
+    ? (isHexColor(tenant.accent_color) ? normalizeHex(tenant.accent_color) : hslToHex(tenant.accent_color))
+    : DEFAULT_ACCENT;
+
   return {
     companyName: tenant.company_name ?? 'Eleva',
-    logoUrl: tenant.logo_url,
-    primaryColorHex: tenant.primary_color ? hslToHex(tenant.primary_color) : DEFAULT_PRIMARY,
-    accentColorHex: tenant.accent_color ? hslToHex(tenant.accent_color) : DEFAULT_ACCENT,
+    logoUrl: tenant.logo_url ?? null,
+    primaryColorHex: primaryHex,
+    accentColorHex: accentHex,
     appUrl: tenant.app_url ?? siteUrl,
   };
 }
