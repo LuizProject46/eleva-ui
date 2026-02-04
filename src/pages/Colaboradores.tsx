@@ -26,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Users, UserPlus, ArrowUpDown, ArrowUp, ArrowDown, Pencil } from 'lucide-react';
+import { Users, UserPlus, ArrowUpDown, ArrowUp, ArrowDown, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Pagination,
@@ -38,6 +38,15 @@ import {
 } from '@/components/ui/pagination';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Filters } from '@/components/filters/Filters';
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const ROLE_LABELS: Record<string, string> = {
   hr: 'RH',
@@ -116,6 +125,8 @@ export default function Colaboradores() {
   const [debouncedPosition, setDebouncedPosition] = useState('');
   const [filterActiveStatus, setFilterActiveStatus] = useState<'all' | 'active' | 'inactive'>('all');
   const [page, setPage] = useState(1);
+  const [deleteConfirmProfile, setDeleteConfirmProfile] = useState<Profile | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -266,6 +277,53 @@ export default function Colaboradores() {
   const handlePageSizeChange = (value: string) => {
     setPageSize(Number(value));
     setPage(1);
+  };
+
+  const handleDeleteUser = async () => {
+    const profileToDelete = deleteConfirmProfile;
+    if (!profileToDelete) return;
+
+    setDeletingId(profileToDelete.id);
+    try {
+      const { data: { session }, error: sessionError } = await supabase.auth.refreshSession();
+      if (sessionError || !session?.access_token) {
+        toast.error('Sessão expirada. Faça login novamente.');
+        setDeleteConfirmProfile(null);
+        setDeletingId(null);
+        return;
+      }
+
+      const baseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const response = await fetch(`${baseUrl}/functions/v1/delete-user`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ user_id: profileToDelete.id }),
+      });
+      const data = await response.json().catch(() => ({})) as { error?: string };
+
+      if (!response.ok) {
+        toast.error(data.error ?? 'Erro ao excluir colaborador.');
+        setDeleteConfirmProfile(null);
+        setDeletingId(null);
+        return;
+      }
+      if (data.error) {
+        toast.error(data.error);
+        setDeleteConfirmProfile(null);
+        setDeletingId(null);
+        return;
+      }
+
+      toast.success('Colaborador excluído.');
+      setDeleteConfirmProfile(null);
+      fetchProfiles();
+    } catch {
+      toast.error('Erro ao excluir colaborador. Tente novamente.');
+    }
+    setDeletingId(null);
   };
 
   const handleSort = (column: 'name' | 'email' | 'department' | 'position') => {
@@ -479,53 +537,53 @@ export default function Colaboradores() {
             <div className="overflow-x-auto">
               <div className="w-full min-w-0 rounded-lg border bg-background p-4">
                 <Table>
-                {/* Header */}
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>
-                      <Skeleton className="h-4 w-24" />
-                    </TableHead>
-                    <TableHead>
-                      <Skeleton className="h-4 w-40" />
-                    </TableHead>
-                    <TableHead>
-                      <Skeleton className="h-4 w-28" />
-                    </TableHead>
-                    <TableHead>
-                      <Skeleton className="h-4 w-24" />
-                    </TableHead>
-                    <TableHead className="text-right">
-                      <Skeleton className="h-4 w-10 ml-auto" />
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-
-                {/* Body */}
-                <TableBody>
-                  {Array.from({ length: pageSize }).map((_, i) => (
-                    <TableRow key={i} className="animate-pulse">
-                      <TableCell>
-                        <Skeleton className="h-4 w-28" />
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-2">
-                          <Skeleton className="h-4 w-48" />
-                          <Skeleton className="h-3 w-32" />
-                        </div>
-                      </TableCell>
-                      <TableCell>
+                  {/* Header */}
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>
                         <Skeleton className="h-4 w-24" />
-                      </TableCell>
-                      <TableCell>
-                        <Skeleton className="h-4 w-20" />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Skeleton className="h-8 w-8 rounded-md ml-auto" />
-                      </TableCell>
+                      </TableHead>
+                      <TableHead>
+                        <Skeleton className="h-4 w-40" />
+                      </TableHead>
+                      <TableHead>
+                        <Skeleton className="h-4 w-28" />
+                      </TableHead>
+                      <TableHead>
+                        <Skeleton className="h-4 w-24" />
+                      </TableHead>
+                      <TableHead className="text-right">
+                        <Skeleton className="h-4 w-10 ml-auto" />
+                      </TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+
+                  {/* Body */}
+                  <TableBody>
+                    {Array.from({ length: pageSize }).map((_, i) => (
+                      <TableRow key={i} className="animate-pulse">
+                        <TableCell>
+                          <Skeleton className="h-4 w-28" />
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-2">
+                            <Skeleton className="h-4 w-48" />
+                            <Skeleton className="h-3 w-32" />
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-24" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-20" />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Skeleton className="h-8 w-8 rounded-md ml-auto" />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
             </div>
           ) : profiles.length === 0 ? (
@@ -537,83 +595,98 @@ export default function Colaboradores() {
             <>
               <div className="overflow-x-auto">
                 <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>
-                      <button
-                        type="button"
-                        onClick={() => handleSort('name')}
-                        className="flex items-center font-medium hover:text-foreground transition-colors"
-                      >
-                        Nome
-                        <SortIcon column="name" />
-                      </button>
-                    </TableHead>
-                    <TableHead>
-                      <button
-                        type="button"
-                        onClick={() => handleSort('email')}
-                        className="flex items-center font-medium hover:text-foreground transition-colors"
-                      >
-                        E-mail
-                        <SortIcon column="email" />
-                      </button>
-                    </TableHead>
-                    <TableHead>
-                      <button
-                        type="button"
-                        onClick={() => handleSort('position')}
-                        className="flex items-center font-medium hover:text-foreground transition-colors"
-                      >
-                        Cargo
-                        <SortIcon column="position" />
-                      </button>
-                    </TableHead>
-                    <TableHead>
-                      <button
-                        type="button"
-                        onClick={() => handleSort('department')}
-                        className="flex items-center font-medium hover:text-foreground transition-colors"
-                      >
-                        Setor
-                        <SortIcon column="department" />
-                      </button>
-                    </TableHead>
-                    <TableHead>Centro de Custo</TableHead>
-                    <TableHead>Gestor</TableHead>
-                    <TableHead>Papel</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="w-[80px] text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {profiles.map((p) => (
-                    <TableRow key={p.id}>
-                      <TableCell className="font-medium">{p.name}</TableCell>
-                      <TableCell>{p.email}</TableCell>
-                      <TableCell>{p.position ?? '—'}</TableCell>
-                      <TableCell>{p.department ?? '—'}</TableCell>
-                      <TableCell>{p.cost_center ?? '—'}</TableCell>
-                      <TableCell>{p.manager_name ?? '—'}</TableCell>
-                      <TableCell>{ROLE_LABELS[p.role] ?? p.role}</TableCell>
-                      <TableCell>{p.is_active !== false ? 'Ativo' : 'Inativo'}</TableCell>
-                      <TableCell className="text-right">
-                        {canEditUser(p) && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => openEditModal(p)}
-                            aria-label="Editar"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </TableCell>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>
+                        <button
+                          type="button"
+                          onClick={() => handleSort('name')}
+                          className="flex items-center font-medium hover:text-foreground transition-colors"
+                        >
+                          Nome
+                          <SortIcon column="name" />
+                        </button>
+                      </TableHead>
+                      <TableHead>
+                        <button
+                          type="button"
+                          onClick={() => handleSort('email')}
+                          className="flex items-center font-medium hover:text-foreground transition-colors"
+                        >
+                          E-mail
+                          <SortIcon column="email" />
+                        </button>
+                      </TableHead>
+                      <TableHead>
+                        <button
+                          type="button"
+                          onClick={() => handleSort('position')}
+                          className="flex items-center font-medium hover:text-foreground transition-colors"
+                        >
+                          Cargo
+                          <SortIcon column="position" />
+                        </button>
+                      </TableHead>
+                      <TableHead>
+                        <button
+                          type="button"
+                          onClick={() => handleSort('department')}
+                          className="flex items-center font-medium hover:text-foreground transition-colors"
+                        >
+                          Setor
+                          <SortIcon column="department" />
+                        </button>
+                      </TableHead>
+                      <TableHead>Centro de Custo</TableHead>
+                      <TableHead>Gestor</TableHead>
+                      <TableHead>Papel</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="w-[80px] text-right">Ações</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {profiles.map((p) => (
+                      <TableRow key={p.id}>
+                        <TableCell className="font-medium">{p.name}</TableCell>
+                        <TableCell>{p.email}</TableCell>
+                        <TableCell>{p.position ?? '—'}</TableCell>
+                        <TableCell>{p.department ?? '—'}</TableCell>
+                        <TableCell>{p.cost_center ?? '—'}</TableCell>
+                        <TableCell>{p.manager_name ?? '—'}</TableCell>
+                        <TableCell>{ROLE_LABELS[p.role] ?? p.role}</TableCell>
+                        <TableCell>{p.is_active !== false ? 'Ativo' : 'Inativo'}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            {canEditUser(p) && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => openEditModal(p)}
+                                aria-label="Editar"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {isHR() && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setDeleteConfirmProfile(p)}
+                                disabled={deletingId === p.id}
+                                aria-label="Excluir"
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-4 border-t">
                 <p className="text-sm text-muted-foreground">
@@ -798,6 +871,27 @@ export default function Colaboradores() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleteConfirmProfile} onOpenChange={(open) => !open && setDeleteConfirmProfile(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir colaborador</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir <strong>{deleteConfirmProfile?.name}</strong> ({deleteConfirmProfile?.email})? Esta ação não pode ser desfeita e o usuário perderá o acesso à plataforma.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <Button
+              variant="destructive"
+              disabled={!!deletingId}
+              onClick={handleDeleteUser}
+            >
+              {deletingId ? 'Excluindo...' : 'Excluir'}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
         <DialogContent>

@@ -1,10 +1,9 @@
 import { Webhook } from 'https://esm.sh/standardwebhooks@1.0.0';
 import { Resend } from 'npm:resend@4.0.0';
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import type { TenantBranding } from './_templates/branding.ts';
 import { parseTenantToBranding } from './_templates/branding.ts';
-import { renderRecoveryEmail } from './_templates/recovery.ts';
-import { renderPasswordChangedEmail } from './_templates/password-changed.ts';
-import { renderGenericEmail } from './_templates/generic.ts';
+import { loadTemplate, replacePlaceholders } from './_templates/load-html.ts';
 import { corsHeaders } from '../_shared/cors.ts';
 
 const resend = new Resend(Deno.env.get('RESEND_API_KEY') ?? '');
@@ -35,6 +34,33 @@ const ACTION_SUBJECTS: Record<string, string> = {
   reauthentication: 'Confirmar reautenticação',
   password_change: 'Senha alterada',
 };
+
+const TEMPLATE_MAP: Record<string, string> = {
+  recovery: 'recovery',
+  password_change: 'password_changed_notification',
+  invite: 'invite',
+};
+
+const DEFAULT_PRIMARY = '#2d7a4a';
+const DEFAULT_COMPANY = 'Eleva';
+
+function buildLogoHtml(branding: TenantBranding): string {
+  const name = branding.companyName || DEFAULT_COMPANY;
+  const color = branding.primaryColorHex || DEFAULT_PRIMARY;
+  if (branding.logoUrl) {
+    return `<img src="${branding.logoUrl}" alt="${name}" width="120" height="40" style="display:block;margin-bottom:24px;" />`;
+  }
+  return `<div style="font-size:24px;font-weight:bold;color:${color};margin-bottom:24px;">${name}</div>`;
+}
+
+function buildBaseVars(branding: TenantBranding): Record<string, string> {
+  return {
+    company_name: branding.companyName || DEFAULT_COMPANY,
+    primary_color: branding.primaryColorHex || DEFAULT_PRIMARY,
+    logo_html: buildLogoHtml(branding),
+    app_url: branding.appUrl || '',
+  };
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -94,6 +120,8 @@ Deno.serve(async (req) => {
   }
 
   const branding = parseTenantToBranding(tenant, site_url);
+  const baseVars = buildBaseVars(branding);
+  const userEmail = user.email;
 
   const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') ?? 'noreply@resend.dev';
   const fromName = branding.companyName;
@@ -103,47 +131,61 @@ Deno.serve(async (req) => {
     return `${supabaseUrl}/auth/v1/verify?token_hash=${encodeURIComponent(token_hash)}&type=${encodeURIComponent(email_action_type)}&redirect_to=${encodeURIComponent(redirect)}`;
   };
 
+  const actionUrl = buildConfirmationUrl();
+  const templateName = TEMPLATE_MAP[email_action_type] ?? 'generic';
+
   let html: string;
   let subject: string;
+
+  const rawHtml = await loadTemplate(templateName);
 
   switch (email_action_type) {
     case 'recovery': {
       subject = `${ACTION_SUBJECTS.recovery} - ${branding.companyName}`;
-      html = renderRecoveryEmail({
-        branding,
-        confirmationUrl: buildConfirmationUrl(),
-        token,
-        email: user.email,
+      html = replacePlaceholders(rawHtml, {
+        ...baseVars,
+        action_url: actionUrl,
+        email: userEmail,
+        token: token || '',
       });
       break;
     }
     case 'password_change': {
       subject = `${ACTION_SUBJECTS.password_change} - ${branding.companyName}`;
-      html = renderPasswordChangedEmail({
-        branding,
-        email: user.email,
+      html = replacePlaceholders(rawHtml, {
+        ...baseVars,
+        email: userEmail,
+      });
+      break;
+    }
+    case 'invite': {
+      subject = `${ACTION_SUBJECTS.invite} - ${branding.companyName}`;
+      html = replacePlaceholders(rawHtml, {
+        ...baseVars,
+        action_url: actionUrl,
       });
       break;
     }
     default: {
       subject = `${ACTION_SUBJECTS[email_action_type] ?? 'Ação necessária'} - ${branding.companyName}`;
-      html = renderGenericEmail({
-        branding,
-        confirmationUrl: buildConfirmationUrl(),
-        token,
-        email: user.email,
-        actionType: email_action_type,
-        subject,
-        heading: ACTION_SUBJECTS[email_action_type] ?? 'Ação necessária',
-        body: `Clique no botão abaixo para continuar.`,
-        ctaText: 'Continuar',
+      const heading = ACTION_SUBJECTS[email_action_type] ?? 'Ação necessária';
+      const tokenBlock = token
+        ? `<p style="margin:0 0 24px;padding:16px;background:#f4f4f5;border-radius:8px;font-family:monospace;font-size:18px;letter-spacing:4px;color:#18181b;">${token}</p>`
+        : '';
+      html = replacePlaceholders(rawHtml, {
+        ...baseVars,
+        action_url: actionUrl,
+        heading,
+        body: 'Clique no botão abaixo para continuar.',
+        cta_text: 'Continuar',
+        token_block: tokenBlock,
       });
     }
   }
 
   const { error } = await resend.emails.send({
     from: `${fromName} <${fromEmail}>`,
-    to: [user.email],
+    to: [userEmail],
     subject,
     html,
   });
