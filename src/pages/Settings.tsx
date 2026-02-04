@@ -25,10 +25,11 @@ function normalizeHexInput(value: string): string {
 }
 
 export default function Settings() {
-  const { user, isHR } = useAuth();
+  const { user, isHR, refreshUser } = useAuth();
   const { brand, updateBrand } = useBrand();
   const { tenant, refetchTenant } = useTenant();
   const showBrandSettings = isHR();
+  const canEditProfile = isHR();
 
   const [companyName, setCompanyName] = useState(brand.companyName);
   const [primaryColorHex, setPrimaryColorHex] = useState(brand.primaryColor);
@@ -37,6 +38,12 @@ export default function Settings() {
   const [loginCoverUrl, setLoginCoverUrl] = useState<string | undefined>(brand.loginCoverUrl);
   const [isSaving, setIsSaving] = useState(false);
 
+  const [profileName, setProfileName] = useState(user?.name ?? '');
+  const [profileDepartment, setProfileDepartment] = useState(user?.department ?? '');
+  const [profilePosition, setProfilePosition] = useState(user?.position ?? '');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [profileEmail, setProfileEmail] = useState(user?.email ?? '');
+
   useEffect(() => {
     setCompanyName(brand.companyName);
     setPrimaryColorHex(brand.primaryColor);
@@ -44,12 +51,45 @@ export default function Settings() {
     setLoginCoverUrl(brand.loginCoverUrl);
   }, [brand.companyName, brand.primaryColor, brand.logoUrl, brand.loginCoverUrl]);
 
+  useEffect(() => {
+    setProfileName(user?.name ?? '');
+    setProfileDepartment(user?.department ?? '');
+    setProfilePosition(user?.position ?? '');
+  }, [user?.name, user?.department, user?.position]);
+
   const handlePrimaryColorChange = (value: string) => {
     setPrimaryColorHex(value);
     if (value.trim() && !isHexColor(value)) {
       setPrimaryColorError('Cor inválida. Use hex (ex: #2d7a4a).');
     } else {
       setPrimaryColorError(null);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    if (!user?.id || !canEditProfile) return;
+    setIsSavingProfile(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          name: profileName.trim() || user.name,
+          department: profileDepartment.trim() || null,
+          position: profilePosition.trim() || null,
+          email: profileEmail.trim() || user.email,
+        })
+        .eq('id', user.id);
+
+      if (error) {
+        toast.error(error.message ?? 'Erro ao salvar perfil');
+        return;
+      }
+      await refreshUser();
+      toast.success('Perfil atualizado');
+    } catch {
+      toast.error('Erro ao salvar perfil');
+    } finally {
+      setIsSavingProfile(false);
     }
   };
 
@@ -122,21 +162,48 @@ export default function Settings() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label>Nome completo</Label>
-                <Input value={user?.name} disabled />
+                <Input
+                  value={profileName}
+                  onChange={(e) => setProfileName(e.target.value)}
+                  disabled={!canEditProfile}
+                  placeholder="Seu nome"
+                />
               </div>
               <div className="space-y-2">
                 <Label>E-mail</Label>
-                <Input value={user?.email} disabled />
+                <Input value={profileEmail} onChange={(e) => setProfileEmail(e.target.value)} disabled={!canEditProfile} placeholder="Seu e-mail" />
               </div>
               <div className="space-y-2">
                 <Label>Departamento</Label>
-                <Input value={user?.department} disabled />
+                <Input
+                  value={profileDepartment}
+                  onChange={(e) => setProfileDepartment(e.target.value)}
+                  disabled={!canEditProfile}
+                  placeholder="Departamento"
+                />
               </div>
               <div className="space-y-2">
                 <Label>Cargo</Label>
-                <Input value={user?.position} disabled />
+                <Input
+                  value={profilePosition}
+                  onChange={(e) => setProfilePosition(e.target.value)}
+                  disabled={!canEditProfile}
+                  placeholder="Cargo"
+                />
               </div>
             </div>
+            {canEditProfile && (
+              <div className="flex justify-end pt-4 border-t border-border mt-6">
+                <Button
+                  onClick={handleSaveProfile}
+                  disabled={isSavingProfile}
+                  variant="outline"
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  {isSavingProfile ? 'Salvando...' : 'Salvar perfil'}
+                </Button>
+              </div>
+            )}
           </div>
 
           {showBrandSettings && tenant?.id && (

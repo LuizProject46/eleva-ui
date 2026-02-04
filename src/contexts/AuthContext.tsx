@@ -29,6 +29,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
   isHR: () => boolean;
   isManager: () => boolean;
   canManageUsers: () => boolean;
@@ -232,6 +233,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  const refreshUser = useCallback(async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (session?.user) {
+      const profile = await fetchProfile(session.user.id);
+      if (profile) setUser(profile);
+    }
+  }, []);
+
   const isHR = () => user?.role === 'hr';
   const isManager = () => user?.role === 'manager';
   const canManageUsers = () => user?.role === 'hr' || user?.role === 'manager';
@@ -252,6 +263,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         login,
         logout,
+        refreshUser,
         isHR,
         isManager,
         canManageUsers,
