@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Upload, Loader2 } from 'lucide-react';
+import { Upload, Loader2, Trash2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 
@@ -20,6 +20,7 @@ interface ImageUploadProps {
   pathPrefix: string; // e.g. 'logo' or 'login-cover'
   currentUrl?: string | null;
   onUploadSuccess: (url: string) => void;
+  onRemove?: () => void;
   label: string;
   className?: string;
 }
@@ -29,6 +30,7 @@ export function ImageUpload({
   pathPrefix,
   currentUrl,
   onUploadSuccess,
+  onRemove,
   label,
   className,
 }: ImageUploadProps) {
@@ -110,20 +112,35 @@ export function ImageUpload({
             className="hidden"
             disabled={isLoading}
           />
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => inputRef.current?.click()}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <Upload className="w-4 h-4 mr-2" />
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => inputRef.current?.click()}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Upload className="w-4 h-4 mr-2" />
+              )}
+              {isLoading ? 'Enviando...' : 'Enviar imagem'}
+            </Button>
+            {displayUrl && onRemove && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onRemove}
+                disabled={isLoading}
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Remover
+              </Button>
             )}
-            {isLoading ? 'Enviando...' : 'Enviar imagem'}
-          </Button>
+          </div>
           <p className="text-xs text-muted-foreground">Máx. 2MB. JPG, PNG ou WebP.</p>
         </div>
       </div>

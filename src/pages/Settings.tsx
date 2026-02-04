@@ -193,6 +193,7 @@ export default function Settings() {
                   pathPrefix="logo"
                   currentUrl={logoUrl}
                   onUploadSuccess={setLogoUrl}
+                  onRemove={() => setLogoUrl(undefined)}
                   label="Logotipo"
                 />
 
@@ -201,6 +202,7 @@ export default function Settings() {
                   pathPrefix="login-cover"
                   currentUrl={loginCoverUrl}
                   onUploadSuccess={setLoginCoverUrl}
+                  onRemove={() => setLoginCoverUrl(undefined)}
                   label="Imagem de capa do login"
                 />
 
