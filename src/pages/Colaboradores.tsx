@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useAuth, UserRole } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -114,6 +114,7 @@ export default function Colaboradores() {
     name: '',
     position: '',
     department: '',
+    cost_center: '',
   });
   const [filterDepartment, setFilterDepartment] = useState('all');
   const [filterManager, setFilterManager] = useState('all');
@@ -169,7 +170,6 @@ export default function Colaboradores() {
     }
 
     if (!isManagerRole && filterManager && filterManager !== 'all') {
-      console.log('filterManager', filterManager);
       query = query.eq('manager_id', filterManager);
     }
     if (debouncedName.trim()) {
@@ -201,10 +201,14 @@ export default function Colaboradores() {
     setProfiles(
       (data ?? []).map((row: Record<string, unknown>) => {
         const { manager, ...p } = row;
-        const m = Array.isArray(manager) ? manager[0] : manager;
+
+        const rawManager = manager ?? null;
+        console.log('rawManager', rawManager);
+        const m = rawManager != null ? (Array.isArray(rawManager) ? rawManager[0] : rawManager) : null;
+        const manager_name = (m as { name?: string } | null)?.name;
         return {
           ...p,
-          manager_name: (m as { name?: string })?.name,
+          manager_name,
           is_active: (p as { is_active?: boolean }).is_active !== false,
         } as Profile;
       })
@@ -218,6 +222,7 @@ export default function Colaboradores() {
       .from('profiles')
       .select('id, email, name, role')
       .eq('role', 'manager')
+      .eq('is_active', true)
       .order('name');
 
     setManagers(data ?? []);
@@ -233,6 +238,15 @@ export default function Colaboradores() {
     if (!canManage) return;
     fetchProfiles();
   }, [canManage, fetchProfiles]);
+
+  // Fill manager_name from managers list when join did not return it (after create or refresh)
+  const profilesWithManagerName = useMemo(() => {
+    if (managers.length === 0) return profiles;
+    return profiles.map((p) => ({
+      ...p,
+      manager_name: p.manager_name ?? (p.manager_id ? managers.find((m) => m.id === p.manager_id)?.name : undefined),
+    }));
+  }, [profiles, managers]);
 
   const handleFilterDepartmentChange = (value: string) => {
     setFilterDepartment(value);
@@ -387,6 +401,7 @@ export default function Colaboradores() {
       setModalOpen(false);
       setForm({ name: '', email: '', position: '', department: '', cost_center: '', manager_id: '', role: 'employee' });
       fetchProfiles();
+      fetchManagers();
     } catch (err) {
       toast.error('Erro ao enviar convite. Tente novamente.');
     }
@@ -402,6 +417,7 @@ export default function Colaboradores() {
       name: p.name ?? '',
       position: p.position ?? '',
       department: p.department ?? '',
+      cost_center: p.cost_center ?? '',
     });
     setEditModalOpen(true);
   };
@@ -432,6 +448,7 @@ export default function Colaboradores() {
         updates.name = editForm.name;
         updates.position = editForm.position || null;
         updates.department = editForm.department || null;
+        updates.cost_center = editForm.cost_center || null;
       }
 
       const { error } = await supabase
@@ -586,7 +603,7 @@ export default function Colaboradores() {
                 </Table>
               </div>
             </div>
-          ) : profiles.length === 0 ? (
+          ) : profilesWithManagerName.length === 0 ? (
             <div className="p-12 text-center text-muted-foreground">
               <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
               <p>Nenhum colaborador encontrado</p>
@@ -645,7 +662,7 @@ export default function Colaboradores() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {profiles.map((p) => (
+                    {profilesWithManagerName.map((p) => (
                       <TableRow key={p.id}>
                         <TableCell className="font-medium">{p.name}</TableCell>
                         <TableCell>{p.email}</TableCell>
@@ -755,7 +772,7 @@ export default function Colaboradores() {
       </div>
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent>
+        <DialogContent aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>Novo Colaborador</DialogTitle>
           </DialogHeader>
@@ -894,7 +911,7 @@ export default function Colaboradores() {
       </AlertDialog>
 
       <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
-        <DialogContent>
+        <DialogContent aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>Editar colaborador</DialogTitle>
           </DialogHeader>
@@ -908,6 +925,15 @@ export default function Colaboradores() {
                       value={editForm.name}
                       onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
                       placeholder="Nome completo"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-email">E-mail</Label>
+                    <Input
+                      id="edit-email"
+                      type="email"
+                      value={editingProfile.email}
+                      className="bg-muted"
                     />
                   </div>
                   <div className="space-y-2">
@@ -943,6 +969,15 @@ export default function Colaboradores() {
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-cost_center">Centro de Custo</Label>
+                    <Input
+                      id="edit-cost_center"
+                      value={editForm.cost_center}
+                      onChange={(e) => setEditForm((f) => ({ ...f, cost_center: e.target.value }))}
+                      placeholder="Ex: CC-001"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Papel</Label>
