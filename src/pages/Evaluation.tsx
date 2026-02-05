@@ -1201,14 +1201,18 @@ export default function Evaluation() {
         ? `${user.name} enviou um feedback para você.`
         : `${user.name} realizou uma avaliação sobre você.`;
 
-      const { error: notificationError } = await supabase.from('notifications').insert({
-        tenant_id: user.tenantId,
-        user_id: evaluatedId,
-        type: isDirectFeedback ? 'feedback_received' : 'evaluation_received',
-        title,
-        body,
-        related_id: evaluationId,
+      const { error: notificationError } = await supabase.functions.invoke('create-notification', {
+        body: {
+          tenant_id: user.tenantId,
+          user_id: evaluatedId,
+          type: isDirectFeedback ? 'feedback_received' : 'evaluation_received',
+          title,
+          body,
+          related_id: evaluationId,
+        },
+        headers: { Authorization: `Bearer ${session.access_token}` },
       });
+
 
       if (notificationError) {
         console.error('Error creating notification:', notificationError);
