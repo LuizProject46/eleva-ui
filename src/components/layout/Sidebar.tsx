@@ -21,7 +21,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useBrand } from '@/contexts/BrandContext';
 import { useMobileMenu } from '@/contexts/MobileMenuContext';
 import { cn } from '@/lib/utils';
-import facholiLogo from '@/assets/facholi-logo.png';
 
 const employeeNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
@@ -85,12 +84,12 @@ function SidebarContent() {
     <>
       {/* Logo */}
       <div className="p-6 border-b border-sidebar-border">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 justify-center">
           {brand.logoUrl ? (
             <img
-              src={facholiLogo}
+              src={brand.logoUrl}
               alt={brand.companyName}
-              className="h-10 w-auto object-contain"
+              className="h-20 w-auto object-contain rounded-2xl"
             />
           ) : (
             <div className="w-10 h-10 rounded-xl gradient-hero flex items-center justify-center">
@@ -99,9 +98,6 @@ function SidebarContent() {
               </span>
             </div>
           )}
-          <div>
-            <p className="text-xs text-sidebar-foreground/60">Portal RH</p>
-          </div>
         </div>
       </div>
 

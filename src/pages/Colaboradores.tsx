@@ -760,6 +760,25 @@ export default function Colaboradores() {
             <DialogTitle>Novo Colaborador</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {canCreateUser() && (
+              <div className="space-y-2">
+                <Label>Papel</Label>
+                <Select
+                  value={form.role}
+                  onValueChange={(v) => setForm((f) => ({ ...f, role: v as 'employee' | 'manager' | 'hr' }))}
+                >
+                  <SelectTrigger className="min-w-[200px]">
+                    <SelectValue placeholder="Selecione o papel" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="hr">{ROLE_LABELS.hr}</SelectItem>
+                    <SelectItem value="manager">{ROLE_LABELS.manager}</SelectItem>
+                    <SelectItem value="employee">{ROLE_LABELS.employee}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="name">Nome</Label>
               <Input
@@ -818,25 +837,6 @@ export default function Colaboradores() {
                 placeholder="Ex: CC-001"
               />
             </div>
-
-            {canCreateUser() && (
-              <div className="space-y-2">
-                <Label>Papel</Label>
-                <Select
-                  value={form.role}
-                  onValueChange={(v) => setForm((f) => ({ ...f, role: v as 'employee' | 'manager' | 'hr' }))}
-                >
-                  <SelectTrigger className="min-w-[200px]">
-                    <SelectValue placeholder="Selecione o papel" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="hr">{ROLE_LABELS.hr}</SelectItem>
-                    <SelectItem value="manager">{ROLE_LABELS.manager}</SelectItem>
-                    <SelectItem value="employee">{ROLE_LABELS.employee}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
 
             {canCreateUser() && (
               <div className="space-y-2">

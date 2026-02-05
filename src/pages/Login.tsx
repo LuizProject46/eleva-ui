@@ -62,26 +62,9 @@ export default function Login() {
           <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0djItSDI0di0yaDEyek0zNiAyNHYySDI0di0yaDEyeiIvPjwvZz48L2c+PC9zdmc+')] opacity-30" />
         )}
 
-        <div className="relative z-10 flex flex-col justify-center px-16 text-white">
+        <div className="relative z-10 flex flex-col justify-center px-16 text-white bg-black/70 w-full">
           <div className="mb-12">
-
-            {brand.logoUrl ? (
-              <img
-                src={brand.logoUrl}
-                alt={brand.companyName}
-                className=" h-24 object-contain rounded-2xl mb-6"
-              />
-            ) : (
-              <>
-                <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center mb-6">
-                  <span className="text-3xl font-bold">{brand.companyName.charAt(0)}</span>
-                </div>
-                <h1 className="text-4xl font-display font-bold mb-4">
-                  {brand.companyName}
-                </h1>
-              </>
-            )}
-            <p className="text-xl text-white/80 leading-relaxed">
+            <p className="text-xl text-white/80 leading-relaxed font-bold">
               Plataforma completa de gestão de pessoas.
               Potencialize o desenvolvimento do seu time.
             </p>
@@ -120,7 +103,7 @@ export default function Login() {
       {/* Right Panel - Login Form */}
       <div className="flex-1 flex items-center justify-center p-4 sm:p-8 bg-background">
         <div className="w-full max-w-md animate-fade-in">
-          <div className="text-center mb-8 lg:hidden flex justify-center">
+          <div className="text-center mb-8  flex justify-center">
             {brand.logoUrl ? (
               <img
                 src={brand.logoUrl}
