@@ -857,8 +857,10 @@ export default function Evaluation() {
         .eq('type', 'self')
         .eq('status', 'submitted')
         .order('submitted_at', { ascending: false });
+
       if (options?.evaluatedId) query = query.eq('evaluated_id', options.evaluatedId);
       if (options?.periodId) query = query.eq('period_id', options.periodId);
+
       query = query.range((p - 1) * size, p * size - 1);
       const { data, error, count } = await query;
       if (error) {
@@ -1194,18 +1196,12 @@ export default function Evaluation() {
         }
       }
 
-      const { data: evaluatedProfile } = await supabase
-        .from('profiles')
-        .select('name')
-        .eq('id', evaluatedId)
-        .maybeSingle();
-
       const title = isDirectFeedback ? 'Você recebeu um feedback' : 'Você recebeu uma avaliação';
       const body = isDirectFeedback
         ? `${user.name} enviou um feedback para você.`
         : `${user.name} realizou uma avaliação sobre você.`;
 
-      await supabase.from('notifications').insert({
+      const { error: notificationError } = await supabase.from('notifications').insert({
         tenant_id: user.tenantId,
         user_id: evaluatedId,
         type: isDirectFeedback ? 'feedback_received' : 'evaluation_received',
@@ -1213,6 +1209,10 @@ export default function Evaluation() {
         body,
         related_id: evaluationId,
       });
+
+      if (notificationError) {
+        console.error('Error creating notification:', notificationError);
+      }
 
       const { error: emailErr } = await supabase.functions.invoke('send-notification-email', {
         body: {
@@ -1225,6 +1225,7 @@ export default function Evaluation() {
       if (emailErr) console.warn('Email notification failed:', emailErr);
 
       toast.success(isDirectFeedback ? 'Feedback enviado!' : 'Avaliação enviada!');
+
       setFormEvaluatedId('');
       setFormEvaluatedRole(null);
       setFormEvaluatedName('');
@@ -1235,6 +1236,8 @@ export default function Evaluation() {
       fetchNotifications();
       setActiveTab('enviadas');
       setSentPage(1);
+
+
       await fetchSentEvaluations(1, pageSize, sentFilters);
       if (formType === 'self') {
         setSelfPage(1);

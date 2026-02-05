@@ -78,6 +78,7 @@ export default function Settings() {
           position: profilePosition.trim() || null,
           email: profileEmail.trim() || user.email,
         })
+        .eq('tenant_id', user.tenantId)
         .eq('id', user.id);
 
       if (error) {

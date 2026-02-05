@@ -149,7 +149,7 @@ export default function Colaboradores() {
   const isManagerRole = user?.role === 'manager';
 
   const fetchProfiles = useCallback(async () => {
-    if (!canManage) return;
+    if (!canManage || !user?.tenantId) return;
 
     setLoading(true);
     let query = supabase
@@ -158,6 +158,7 @@ export default function Colaboradores() {
         'id, email, name, role, department, position, cost_center, manager_id, is_active, manager:profiles!manager_id(name)',
         { count: 'exact' }
       )
+      .eq('tenant_id', user?.tenantId)
       .order(sortBy, { ascending: sortAsc });
 
     if (user?.id) {
@@ -218,11 +219,12 @@ export default function Colaboradores() {
   }, [canManage, isManagerRole, page, pageSize, filterDepartment, filterManager, debouncedName, debouncedEmail, debouncedPosition, filterActiveStatus, sortBy, sortAsc, user?.id]);
 
   const fetchManagers = useCallback(async () => {
-    if (!canManage) return;
+    if (!canManage || !user?.tenantId) return;
     const { data } = await supabase
       .from('profiles')
       .select('id, email, name, role')
       .eq('role', 'manager')
+      .eq('tenant_id', user?.tenantId)
       .eq('is_active', true)
       .order('name');
 

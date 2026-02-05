@@ -2,6 +2,23 @@
 
 Authentication emails (invite, password recovery, password changed, and generic actions) are sent by the **send-email** Edge Function, which loads HTML templates and injects whitelabel branding at render time.
 
+## Send Email Hook setup (required for production)
+
+For Supabase Auth to use the **send-email** function (and thus your Resend + branded templates), you must configure the Send Email Hook in the Dashboard. Until this is set, Auth uses its built-in/SMTP path and your invite/recovery/password_change templates are not used.
+
+1. **Supabase Dashboard** → **Authentication** → **Hooks**.
+2. Enable **Send Email** and set:
+   - **Hook URL:** Your deployed `send-email` Edge Function URL, e.g.  
+     `https://<project-ref>.supabase.co/functions/v1/send-email`
+   - **Secret:** Generate or paste a secret (e.g. `v1,whsec_<base64>`). The Hooks UI can generate one.
+3. Set the **same secret** as the Edge Function secret `SEND_EMAIL_HOOK_SECRET` so the function can verify the webhook signature:
+   ```bash
+   supabase secrets set SEND_EMAIL_HOOK_SECRET="v1,whsec_<your-secret>"
+   ```
+4. Ensure **send-email** also has `RESEND_API_KEY` set (same `supabase secrets set` or env file).
+
+After this, when HR creates a user via the invite-employee flow (or a user requests password recovery), Auth will POST to **send-email**, which will render the appropriate template and send the email via Resend.
+
 ## Where templates live
 
 - **Path:** `supabase/functions/send-email/templates/`

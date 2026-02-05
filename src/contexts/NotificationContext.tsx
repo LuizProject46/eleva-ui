@@ -34,6 +34,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       .from('notifications')
       .select('id, user_id, type, title, body, related_id, read_at, created_at')
       .eq('user_id', user.id)
+      .eq('tenant_id', user.tenantId)
+      .is('read_at', null)
       .order('created_at', { ascending: false })
       .limit(50);
 
