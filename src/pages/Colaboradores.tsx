@@ -108,6 +108,7 @@ export default function Colaboradores() {
   });
   const [editingProfile, setEditingProfile] = useState<Profile | null>(null);
   const [editForm, setEditForm] = useState({
+    email: '',
     role: 'employee' as UserRole,
     manager_id: '',
     is_active: true,
@@ -203,7 +204,7 @@ export default function Colaboradores() {
         const { manager, ...p } = row;
 
         const rawManager = manager ?? null;
-        console.log('rawManager', rawManager);
+
         const m = rawManager != null ? (Array.isArray(rawManager) ? rawManager[0] : rawManager) : null;
         const manager_name = (m as { name?: string } | null)?.name;
         return {
@@ -411,6 +412,7 @@ export default function Colaboradores() {
   const openEditModal = (p: Profile) => {
     setEditingProfile(p);
     setEditForm({
+      email: p.email,
       role: p.role,
       manager_id: p.manager_id ?? '',
       is_active: p.is_active !== false,
@@ -449,6 +451,7 @@ export default function Colaboradores() {
         updates.position = editForm.position || null;
         updates.department = editForm.department || null;
         updates.cost_center = editForm.cost_center || null;
+        updates.email = editForm.email;
       }
 
       const { error } = await supabase
@@ -932,8 +935,8 @@ export default function Colaboradores() {
                     <Input
                       id="edit-email"
                       type="email"
-                      value={editingProfile.email}
-                      className="bg-muted"
+                      value={editForm.email}
+                      onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
                     />
                   </div>
                   <div className="space-y-2">
