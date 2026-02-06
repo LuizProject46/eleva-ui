@@ -127,8 +127,7 @@ Deno.serve(async (req) => {
   const fromName = branding.companyName;
 
   const buildConfirmationUrl = () => {
-    const redirect = redirect_to || site_url;
-    return `${supabaseUrl}/auth/v1/verify?token_hash=${encodeURIComponent(token_hash)}&type=${encodeURIComponent(email_action_type)}&redirect_to=${encodeURIComponent(redirect)}`;
+    return `${supabaseUrl}/auth/v1/verify?token=${encodeURIComponent(token_hash)}&type=${encodeURIComponent(email_action_type)}&redirect_to=${encodeURIComponent(redirect_to)}`;
   };
 
   const actionUrl = buildConfirmationUrl();

@@ -8,13 +8,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Users, Building2, ArrowLeft, Mail } from 'lucide-react';
 
-function buildRedirectUrl(slug: string | null): string {
+function buildRedirectUrl(): string {
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const base = `${origin}/redefinir-senha`;
-  if (slug && slug !== 'demo') {
-    return `${base}?tenant=${encodeURIComponent(slug)}`;
-  }
-  return `${base}?tenant=demo`;
+  return `${origin}/reset-password`;
 }
 
 export default function ForgotPassword() {
@@ -24,7 +20,6 @@ export default function ForgotPassword() {
   const [error, setError] = useState('');
 
   const { brand } = useBrand();
-  const { slug } = useTenant();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,7 +27,7 @@ export default function ForgotPassword() {
     setIsLoading(true);
 
     try {
-      const redirectTo = buildRedirectUrl(slug);
+      const redirectTo = buildRedirectUrl();
       const { error: err } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
 
       if (err) {
