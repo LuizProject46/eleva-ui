@@ -36,17 +36,16 @@ import {
   History,
   UserCircle,
   ChevronDown,
-  ChevronUp,
+
   Check,
   ChevronsUpDown,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNotifications } from '@/contexts/NotificationContext';
 import {
-  getEligibleTargetRoles,
-  canShowEvaluationType,
   canEvaluate,
   getFormTypeOptions,
+  getEvaluationTypeLabel,
   type UserRole,
   type FormTypeOption,
 } from '@/lib/evaluationPermissions';
@@ -55,6 +54,8 @@ type EvaluationType =
   | 'self'
   | 'manager_to_employee'
   | 'employee_to_manager'
+  | 'employee_to_hr'
+  | 'employee_to_employee'
   | 'hr_to_user'
   | 'direct_feedback';
 
@@ -93,6 +94,7 @@ interface EvaluationRecord {
   period_name?: string;
   evaluator_name?: string;
   evaluated_name?: string;
+  evaluated_role?: UserRole;
 }
 
 /** evaluationId -> competencyId -> { score, comment } */
@@ -107,14 +109,6 @@ function formatDateBR(isoDate: string | null | undefined): string {
     year: 'numeric',
   });
 }
-
-const EVALUATION_TYPE_LABELS: Record<EvaluationType, string> = {
-  self: 'Autoavaliação',
-  manager_to_employee: 'Gestor → Colaborador',
-  employee_to_manager: 'Colaborador → Gestor',
-  hr_to_user: 'RH → Usuário',
-  direct_feedback: 'Feedback direto',
-};
 
 const StarRating = ({
   score,
@@ -246,7 +240,7 @@ function EvaluationTimelineCard({
             <div className="min-w-0 flex-1">
               <p className="font-medium text-foreground">{titleLabel ?? '—'}</p>
               <p className="text-sm text-muted-foreground mt-0.5">
-                {EVALUATION_TYPE_LABELS[evaluation.type as EvaluationType]}
+                {getEvaluationTypeLabel(evaluation.type as EvaluationType, evaluation.evaluated_role)}
                 {evaluation.period_name && ` · ${evaluation.period_name}`}
                 {(evaluation.submitted_at || evaluation.updated_at) && (
                   <> · {formatDateBR(evaluation.submitted_at || evaluation.updated_at)}</>
@@ -370,8 +364,8 @@ function EvaluationPagination({
 }
 
 function mapEvalRow(row: Record<string, unknown>, periods: EvaluationPeriod[]): EvaluationRecord {
-  const evaluator = row.evaluator as { name?: string } | { name?: string }[] | null;
-  const evaluated = row.evaluated as { name?: string } | { name?: string }[] | null;
+  const evaluator = row.evaluator as { name?: string; role?: string } | { name?: string; role?: string }[] | null;
+  const evaluated = row.evaluated as { name?: string; role?: string } | { name?: string; role?: string }[] | null;
   const period = row.period as { name?: string } | { name?: string }[] | null;
   const evaluatorObj = Array.isArray(evaluator) ? evaluator[0] : evaluator;
   const evaluatedObj = Array.isArray(evaluated) ? evaluated[0] : evaluated;
@@ -379,6 +373,7 @@ function mapEvalRow(row: Record<string, unknown>, periods: EvaluationPeriod[]): 
   const periodId = row.period_id as string | null | undefined;
   const periodName =
     periodObj?.name ?? (periodId ? periods.find((p) => p.id === periodId)?.name : undefined) ?? undefined;
+  const evaluatedRole = evaluatedObj?.role as UserRole | undefined;
   return {
     id: row.id as string,
     evaluator_id: row.evaluator_id as string,
@@ -393,6 +388,7 @@ function mapEvalRow(row: Record<string, unknown>, periods: EvaluationPeriod[]): 
     period_name: periodName,
     evaluator_name: evaluatorObj?.name ?? '—',
     evaluated_name: evaluatedObj?.name ?? '—',
+    evaluated_role: evaluatedRole,
   };
 }
 
@@ -652,6 +648,7 @@ export default function Evaluation() {
     setPeopleOptions(list);
   }, [user?.id]);
 
+  // Evaluation targets are restricted by backend RLS (same sector or team for all roles).
   const searchProfilesForEvaluation = useCallback(
     async (
       searchTerm: string,
@@ -670,9 +667,6 @@ export default function Evaluation() {
         .limit(20);
       if (searchTerm.trim()) {
         query = query.ilike('name', `%${searchTerm.trim()}%`);
-      }
-      if (type === 'manager_to_employee' && targetRole === 'employee') {
-        query = query.eq('manager_id', currentUser.id);
       }
       const { data, error } = await query;
       if (error) return [];
@@ -748,7 +742,7 @@ export default function Evaluation() {
       let query = supabase
         .from('evaluations')
         .select(
-          'id, evaluator_id, evaluated_id, type, status, overall_score, feedback_text, submitted_at, period_id, evaluator:profiles!evaluator_id(name), period:evaluation_periods(name)',
+          'id, evaluator_id, evaluated_id, type, status, overall_score, feedback_text, submitted_at, period_id, evaluator:profiles!evaluator_id(name), evaluated:profiles!evaluated_id(name, role), period:evaluation_periods(name)',
           { count: 'exact' }
         )
         .eq('evaluated_id', user.id)
@@ -785,7 +779,7 @@ export default function Evaluation() {
       let query = supabase
         .from('evaluations')
         .select(
-          'id, evaluator_id, evaluated_id, type, status, overall_score, feedback_text, submitted_at, period_id, evaluated:profiles!evaluated_id(name), period:evaluation_periods(name)',
+          'id, evaluator_id, evaluated_id, type, status, overall_score, feedback_text, submitted_at, period_id, evaluated:profiles!evaluated_id(name, role), period:evaluation_periods(name)',
           { count: 'exact' }
         )
         .eq('evaluator_id', user.id)
@@ -818,7 +812,7 @@ export default function Evaluation() {
       let query = supabase
         .from('evaluations')
         .select(
-          'id, evaluator_id, evaluated_id, type, status, overall_score, feedback_text, submitted_at, period_id, period:evaluation_periods(name)',
+          'id, evaluator_id, evaluated_id, type, status, overall_score, feedback_text, submitted_at, period_id, evaluated:profiles!evaluated_id(name, role), period:evaluation_periods(name)',
           { count: 'exact' }
         )
         .eq('evaluator_id', user.id)
@@ -850,7 +844,7 @@ export default function Evaluation() {
       let query = supabase
         .from('evaluations')
         .select(
-          'id, evaluator_id, evaluated_id, type, status, overall_score, feedback_text, submitted_at, period_id, evaluated:profiles!evaluated_id(name), period:evaluation_periods(name)',
+          'id, evaluator_id, evaluated_id, type, status, overall_score, feedback_text, submitted_at, period_id, evaluated:profiles!evaluated_id(name, role), period:evaluation_periods(name)',
           { count: 'exact' }
         )
         .eq('tenant_id', user.tenantId)
@@ -1321,9 +1315,9 @@ export default function Evaluation() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todos</SelectItem>
-                      {(['manager_to_employee', 'employee_to_manager', 'hr_to_user', 'direct_feedback'] as EvaluationType[]).map((t) => (
+                      {(['manager_to_employee', 'employee_to_manager', 'employee_to_hr', 'employee_to_employee', 'hr_to_user', 'direct_feedback'] as EvaluationType[]).map((t) => (
                         <SelectItem key={t} value={t}>
-                          {EVALUATION_TYPE_LABELS[t]}
+                          {getEvaluationTypeLabel(t)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -1539,9 +1533,9 @@ export default function Evaluation() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Todos</SelectItem>
-                      {(['manager_to_employee', 'employee_to_manager', 'hr_to_user', 'direct_feedback'] as EvaluationType[]).map((t) => (
+                      {(['manager_to_employee', 'employee_to_manager', 'employee_to_hr', 'employee_to_employee', 'hr_to_user', 'direct_feedback'] as EvaluationType[]).map((t) => (
                         <SelectItem key={t} value={t}>
-                          {EVALUATION_TYPE_LABELS[t]}
+                          {getEvaluationTypeLabel(t)}
                         </SelectItem>
                       ))}
                     </SelectContent>
