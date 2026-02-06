@@ -90,6 +90,7 @@ function SidebarContent() {
               src={brand.logoUrl}
               alt={brand.companyName}
               className="h-20 w-auto object-contain rounded-2xl"
+              loading='lazy'  
             />
           ) : (
             <div className="w-10 h-10 rounded-xl gradient-hero flex items-center justify-center">

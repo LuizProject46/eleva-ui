@@ -15,6 +15,10 @@ function getExtension(mime: string): string {
   return 'jpg';
 }
 
+function getUniqueFileId(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
 interface ImageUploadProps {
   tenantId: string;
   pathPrefix: string; // e.g. 'logo' or 'login-cover'
@@ -67,7 +71,8 @@ export function ImageUpload({
 
     try {
       const ext = getExtension(file.type);
-      const path = `${tenantId}/${pathPrefix}.${ext}`;
+      const uniqueId = getUniqueFileId();
+      const path = `${tenantId}/${pathPrefix}-${uniqueId}.${ext}`;
 
       const { error: uploadError } = await supabase.storage
         .from('tenant-assets')
@@ -98,6 +103,7 @@ export function ImageUpload({
               src={displayUrl}
               alt="Preview"
               className="h-full w-full object-contain"
+              loading='lazy'
             />
           ) : (
             <span className="text-xs text-muted-foreground">Sem imagem</span>

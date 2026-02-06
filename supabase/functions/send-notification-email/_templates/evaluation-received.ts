@@ -9,7 +9,7 @@ interface EvaluationReceivedParams {
 export function renderEvaluationReceivedEmail(params: EvaluationReceivedParams): string {
   const { branding, evaluatorName, isFeedback } = params;
   const logoHtml = branding.logoUrl
-    ? `<img src="${branding.logoUrl}" alt="${branding.companyName}" width="120" height="40" style="display:block;margin-bottom:24px;" />`
+    ? `<img src="${branding.logoUrl}" alt="${branding.companyName}" width="120" height="40" style="display:block;margin-bottom:24px;margin:20px auto;object-fit:contain; height: auto;border-radius:12px 12px;" />`
     : `<div style="font-size:24px;font-weight:bold;color:${branding.primaryColorHex};margin-bottom:24px;">${branding.companyName}</div>`;
 
   const heading = isFeedback ? 'Você recebeu um feedback' : 'Você recebeu uma avaliação';
@@ -37,9 +37,9 @@ export function renderEvaluationReceivedEmail(params: EvaluationReceivedParams):
               ${logoHtml}
               <h1 style="margin:0 0 16px;font-size:24px;font-weight:600;color:#18181b;">${heading}</h1>
               <p style="margin:0 0 24px;font-size:16px;line-height:24px;color:#52525b;">${body}</p>
-              <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 0 24px;">
+              <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 auto 24px;">
                 <tr>
-                  <td>
+                  <td align="center">
                     <a href="${ctaUrl}" style="display:inline-block;padding:14px 28px;background-color:${branding.primaryColorHex};color:#ffffff;text-decoration:none;font-weight:600;font-size:16px;border-radius:8px;">Ver no portal</a>
                   </td>
                 </tr>

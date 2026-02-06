@@ -109,6 +109,7 @@ export default function Login() {
                 src={brand.logoUrl}
                 alt={brand.companyName}
                 className="h-24 object-contain rounded-2xl mb-6"
+                loading='lazy'
               />
             ) : (
               <>

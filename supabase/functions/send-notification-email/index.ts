@@ -97,19 +97,21 @@ Deno.serve(async (req) => {
       logo_url?: string | null;
       primary_color?: string | null;
       accent_color?: string | null;
-      app_url?: string | null;
+      slug?: string | null;
     } | null = null;
 
     if (evaluatedProfile.tenant_id) {
       const { data: t } = await supabaseAdmin
         .from('tenants')
-        .select('company_name, logo_url, primary_color, accent_color, app_url')
+        .select('company_name, logo_url, primary_color, accent_color, slug')
         .eq('id', evaluatedProfile.tenant_id)
         .maybeSingle();
       tenant = t;
     }
 
-    const siteUrl = Deno.env.get('SITE_URL') ?? supabaseUrl.replace('.supabase.co', '');
+    const subdomain = `${tenant?.slug ? tenant.slug : ''}`;
+    const domain = Deno.env.get('SITE_URL') ?? supabaseUrl.replace('.supabase.co', '');
+    const siteUrl = `https://${subdomain ? `${subdomain}.${domain}` : domain}`;
     const branding = parseTenantToBranding(tenant, siteUrl);
 
     const isFeedback = type === 'feedback';

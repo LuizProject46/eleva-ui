@@ -129,7 +129,7 @@ export function applyBrandingToCss(config: Partial<BrandingConfig>): void {
   root.style.setProperty('--brand-primary-light', primaryLight);
   root.style.setProperty('--brand-primary-dark', primaryDark);
 
-  root.style.setProperty('--sidebar-primary', primaryLight);
+  root.style.setProperty('--sidebar-primary', primaryHsl);
   root.style.setProperty('--sidebar-primary-foreground', '0 0% 100%');
   root.style.setProperty('--sidebar-ring', primaryLight);
 
