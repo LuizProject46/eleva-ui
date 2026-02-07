@@ -20,7 +20,7 @@ interface TenantContextType {
   refetchTenant: () => Promise<void>;
 }
 
-const DEFAULT_SLUG = 'eleva-ui-vercel';
+const DEFAULT_SLUG = 'eleva-ui';
 
 function getTenantSlugFromHost(): string {
   if (typeof window === 'undefined') return DEFAULT_SLUG;

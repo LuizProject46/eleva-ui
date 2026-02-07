@@ -48,7 +48,7 @@ function buildLogoHtml(branding: TenantBranding): string {
   const name = branding.companyName || DEFAULT_COMPANY;
   const color = branding.primaryColorHex || DEFAULT_PRIMARY;
   if (branding.logoUrl) {
-    return `<img src="${branding.logoUrl}" alt="${name}" width="120" height="40" style="display:block;margin-bottom:24px;" />`;
+    return `<img src="${branding.logoUrl}" alt="${branding.companyName}" width="120" height="40" style="display:block;margin-bottom:24px;margin:20px auto;object-fit:contain; height: auto;border-radius:12px 12px;" />`
   }
   return `<div style="font-size:24px;font-weight:bold;color:${color};margin-bottom:24px;">${name}</div>`;
 }
