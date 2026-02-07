@@ -23,7 +23,7 @@ CREATE TABLE profiles (
   id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
   email TEXT NOT NULL,
   name TEXT NOT NULL,
-  role user_role NOT NULL DEFAULT 'employee',
+  role user_role NOT NULL DEFAULT 'hr',
   department TEXT,
   position TEXT,
   avatar_url TEXT,
