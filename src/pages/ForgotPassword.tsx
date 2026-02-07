@@ -20,6 +20,7 @@ export default function ForgotPassword() {
   const [error, setError] = useState('');
 
   const { brand } = useBrand();
+  const { tenant } = useTenant();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,6 +51,14 @@ export default function ForgotPassword() {
   const leftPanelStyle = brand.loginCoverUrl
     ? { backgroundImage: `url(${brand.loginCoverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' as const }
     : { backgroundColor: 'var(--color-primary)' };
+
+    if (!tenant) {
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="animate-spin h-10 w-10 rounded-full border-2 border-primary border-t-transparent" />
+        </div>
+      );
+    }
 
   return (
     <div className="min-h-screen flex">
@@ -97,7 +106,7 @@ export default function ForgotPassword() {
 
       <div className="flex-1 flex items-center justify-center p-4 sm:p-8 bg-background">
         <div className="w-full max-w-md animate-fade-in">
-          <div className="text-center mb-8 flex justify-center">
+          <div className="text-center mb-8 flex justify-center flex-col">
             {brand.logoUrl ? (
               <img
                 src={brand.logoUrl}

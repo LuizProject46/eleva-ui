@@ -155,7 +155,7 @@ export default function Colaboradores() {
     let query = supabase
       .from('profiles')
       .select(
-        'id, email, name, role, department, position, cost_center, manager_id, is_active, manager:profiles!manager_id(name)',
+        'id, email, name, role, department, position, cost_center, manager_id, is_active',
         { count: 'exact' }
       )
       .eq('tenant_id', user?.tenantId)

@@ -26,13 +26,32 @@ DROP POLICY IF EXISTS "Users can view HR of same tenant" ON profiles;
 CREATE POLICY "Authenticated users can view same sector or team" ON profiles
   FOR SELECT
   USING (
-    tenant_id IS NOT NULL
-    AND tenant_id = public.get_my_profile_tenant_id()
-    AND id <> auth.uid()
-    AND (
-      department IS NOT DISTINCT FROM public.get_my_profile_department()
-      OR manager_id = public.get_my_manager_id()
+    -- sempre dentro do tenant
+  tenant_id IS NOT NULL
+  AND tenant_id = public.get_my_profile_tenant_id()
+
+  -- opcional: não listar a si mesmo
+  AND id <> auth.uid()
+
+  AND (
+    -- ADMIN / RH vê tudo
+    public.get_my_profile_role() = 'hr'
+
+    -- GESTOR: subordinados, mesmo departamento ou RH
+    OR (
+      public.get_my_profile_role() = 'manager'
+      AND (
+        manager_id = auth.uid()
+        OR department IS NOT DISTINCT FROM public.get_my_profile_department() OR role = 'hr'
+      )
     )
+
+    -- COLABORADOR: apenas mesmo departamento
+    OR (
+      public.get_my_profile_role() = 'employee'
+      AND department IS NOT DISTINCT FROM public.get_my_profile_department()
+    )
+  )
   );
 
 -- 3. Evaluation validation: same sector/team for all roles, no self-evaluation, allow employee→employee for direct_feedback.

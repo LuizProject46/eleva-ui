@@ -102,12 +102,10 @@ END;
 $$;
 
 -- Tenant demo para desenvolvimento
-INSERT INTO tenants (slug, company_name, primary_color, accent_color, is_active)
+INSERT INTO tenants (slug, company_name, is_active)
 VALUES (
-  'demo',
+  'eleva-ui-vercel',
   'Facholi',
-  '145 75% 38%',
-  '24 95% 60%',
   true
 )
 ON CONFLICT (slug) DO NOTHING;

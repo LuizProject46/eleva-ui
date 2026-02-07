@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBrand } from '@/contexts/BrandContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Users, Building2, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { useTenant } from '@/contexts/TenantContext';
 
 function getAuthErrorMessage(error: { message?: string; status?: number }): string {
   const msg = error?.message?.toLowerCase() ?? '';
@@ -30,6 +31,7 @@ export default function Login() {
 
   const { login } = useAuth();
   const { brand } = useBrand();
+  const { tenant } = useTenant();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -50,6 +52,14 @@ export default function Login() {
   const leftPanelStyle = brand.loginCoverUrl
     ? { backgroundImage: `url(${brand.loginCoverUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' as const }
     : { backgroundColor: 'var(--color-primary)' };
+
+  if (!tenant) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin h-10 w-10 rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex">
@@ -103,7 +113,7 @@ export default function Login() {
       {/* Right Panel - Login Form */}
       <div className="flex-1 flex items-center justify-center p-4 sm:p-8 bg-background">
         <div className="w-full max-w-md animate-fade-in">
-          <div className="text-center mb-8  flex justify-center">
+          <div className="text-center mb-8  flex justify-center flex-col">
             {brand.logoUrl ? (
               <img
                 src={brand.logoUrl}
@@ -198,7 +208,8 @@ export default function Login() {
 
           <p className="text-center text-sm text-muted-foreground mt-6">
             Esqueceu sua senha?
-            <a href="/forgot-password" className="text-primary hover:underline font-medium">Recuperar acesso</a>
+
+            <Link to="/forgot-password" className="text-primary hover:underline font-medium">Recuperar acesso</Link>
           </p>
         </div>
       </div>
