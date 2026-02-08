@@ -50,8 +50,10 @@ import {
   Shield,
   SlidersHorizontal,
   ClipboardList,
+  Download,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useBehavioralReportDownload } from '@/hooks/useBehavioralReportDownload';
 
 type AssessmentStatus = 'not_started' | 'in_progress' | 'completed';
 
@@ -392,6 +394,11 @@ function canTakeAssessment(role: string): boolean {
 export default function Assessment() {
   const { user, isHR, isManager } = useAuth();
   const canSeeAdminList = isHR() || isManager();
+  const {
+    downloadReport,
+    isDownloading,
+    downloadingUserId,
+  } = useBehavioralReportDownload();
 
   const [myAssessment, setMyAssessment] = useState<BehavioralAssessmentRow | null>(null);
   const [isLoadingMyAssessment, setIsLoadingMyAssessment] = useState(true);
@@ -607,10 +614,8 @@ export default function Assessment() {
   if (canTake && isIntroShown) {
     if (isLoadingMyAssessment) {
       mainContent = (
-        <div className="max-w-2xl mx-auto animate-fade-in p-4 md:p-6">
-          <div className="card-elevated p-8 text-center">
-            <p className="text-muted-foreground">Carregando...</p>
-          </div>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="animate-spin h-10 w-10 rounded-full border-2 border-primary border-t-transparent" />
         </div>
       );
     } else {
@@ -767,8 +772,12 @@ export default function Assessment() {
             >
               Refazer Teste
             </Button>
-            <Button className="flex-1 gradient-hero">
-              Baixar Relatório
+            <Button
+              className="flex-1 gradient-hero"
+              disabled={isDownloading}
+              onClick={() => downloadReport()}
+            >
+              {isDownloading ? 'Gerando PDF…' : 'Baixar Relatório (PDF)'}
             </Button>
           </div>
         </div>
@@ -1013,11 +1022,13 @@ export default function Assessment() {
                   <TableHead><Skeleton className="h-4 w-20" /></TableHead>
                   <TableHead><Skeleton className="h-4 w-24" /></TableHead>
                   <TableHead><Skeleton className="h-4 w-28" /></TableHead>
+                  <TableHead><Skeleton className="h-4 w-24" /></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-full" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-full" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-full" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-full" /></TableCell>
@@ -1044,6 +1055,7 @@ export default function Assessment() {
                     <TableHead>Equipe</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Conclusão</TableHead>
+                    <TableHead className="w-[120px]">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1057,6 +1069,31 @@ export default function Assessment() {
                         {row.completed_at
                           ? new Date(row.completed_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
                           : '—'}
+                      </TableCell>
+                      <TableCell>
+                        {row.status === 'completed' ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5"
+                            disabled={isDownloading && downloadingUserId === row.user_id}
+                            onClick={() => {
+                              toast.info(`Baixando relatório de ${row.name ?? 'colaborador'}…`);
+                              downloadReport(row.user_id, row.name ?? undefined, row.manager_name);
+                            }}
+                          >
+                            {isDownloading && downloadingUserId === row.user_id ? (
+                              <>Gerando…</>
+                            ) : (
+                              <>
+                                <Download className="h-4 w-4" />
+                                Baixar PDF
+                              </>
+                            )}
+                          </Button>
+                        ) : (
+                          '—'
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
