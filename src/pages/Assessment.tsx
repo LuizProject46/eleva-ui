@@ -1,7 +1,44 @@
-import { useState } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Brain,
   ChevronRight,
@@ -10,8 +47,62 @@ import {
   Zap,
   Users,
   BarChart3,
-  Shield
+  Shield,
+  SlidersHorizontal,
+  ClipboardList,
 } from 'lucide-react';
+import { toast } from 'sonner';
+
+type AssessmentStatus = 'not_started' | 'in_progress' | 'completed';
+
+interface BehavioralAssessmentRow {
+  id: string;
+  user_id: string;
+  tenant_id: string;
+  status: AssessmentStatus;
+  answers: Record<string, string> | null;
+  result: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface AssessmentAdminRow {
+  user_id: string;
+  name: string | null;
+  department: string | null;
+  manager_id: string | null;
+  status: string;
+  completed_at: string | null;
+}
+
+interface ManagerOption {
+  id: string;
+  name: string;
+}
+
+interface AdminRowWithManager extends AssessmentAdminRow {
+  manager_name: string | null;
+}
+
+const DEFAULT_DEPARTMENTS = [
+  'Administrativo',
+  'Comercial',
+  'Financeiro',
+  'Marketing',
+  'Operações',
+  'Recursos Humanos',
+  'Tecnologia',
+  'Vendas',
+] as const;
+
+const ASSESSMENT_STATUS_LABELS: Record<string, string> = {
+  not_started: 'Não iniciado',
+  in_progress: 'Em progresso',
+  completed: 'Concluído',
+};
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50];
 
 interface Question {
   id: string;
@@ -294,21 +385,173 @@ const discProfiles = {
   },
 };
 
+function canTakeAssessment(role: string): boolean {
+  return role === 'employee' || role === 'hr' || role === 'manager';
+}
+
 export default function Assessment() {
-  const [hasCompleted, setHasCompleted] = useState(false);
+  const { user, isHR, isManager } = useAuth();
+  const canSeeAdminList = isHR() || isManager();
+
+  const [myAssessment, setMyAssessment] = useState<BehavioralAssessmentRow | null>(null);
+  const [isLoadingMyAssessment, setIsLoadingMyAssessment] = useState(true);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState<Record<string, 'D' | 'I' | 'S' | 'C'>>({});
   const [showResult, setShowResult] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const [adminList, setAdminList] = useState<AssessmentAdminRow[]>([]);
+  const [isLoadingAdminList, setIsLoadingAdminList] = useState(false);
+  const [adminPage, setAdminPage] = useState(1);
+  const [adminPageSize, setAdminPageSize] = useState(10);
+  const [adminTotalCount, setAdminTotalCount] = useState(0);
+  const [filterDepartment, setFilterDepartment] = useState('all');
+  const [filterManager, setFilterManager] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterName, setFilterName] = useState('');
+  const [debouncedFilterName, setDebouncedFilterName] = useState('');
+  const [managers, setManagers] = useState<ManagerOption[]>([]);
+  const [adminFiltersOpen, setAdminFiltersOpen] = useState(false);
+
+  const canTake = user?.role && canTakeAssessment(user.role);
+
+  const fetchMyAssessment = useCallback(async () => {
+    if (!canTake || !user?.id) return;
+    setIsLoadingMyAssessment(true);
+    const { data, error } = await supabase
+      .from('behavioral_assessments')
+      .select('id, user_id, tenant_id, status, answers, result, completed_at, created_at, updated_at')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (error) {
+      toast.error('Erro ao carregar o teste comportamental');
+      return
+    }
+
+    setMyAssessment(data as BehavioralAssessmentRow | null);
+    setAnswers(data?.answers as Record<string, 'D' | 'I' | 'S' | 'C'> || {});
+
+
+    if (data?.status === 'completed') {
+      setShowResult(true);
+    } else {
+      setCurrentQuestion(1);
+    }
+    setIsLoadingMyAssessment(false);
+  }, [canTake, user?.id]);
+
+  useEffect(() => {
+    fetchMyAssessment();
+  }, [fetchMyAssessment]);
+
+  useEffect(() => {
+    if (!myAssessment || myAssessment.status !== 'in_progress' || !myAssessment.answers || typeof myAssessment.answers !== 'object') return;
+    const restored = myAssessment.answers as Record<string, 'D' | 'I' | 'S' | 'C'>;
+    setAnswers(restored);
+    const firstUnanswered = discQuestions.findIndex(q => !restored[q.id]);
+    if (firstUnanswered === -1) {
+      setShowResult(true);
+    } else {
+      setCurrentQuestion(firstUnanswered);
+    }
+  }, [myAssessment?.id, myAssessment?.status, myAssessment?.answers]);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedFilterName(filterName), 400);
+    return () => clearTimeout(t);
+  }, [filterName]);
+
+  const fetchManagers = useCallback(async () => {
+    if (!canSeeAdminList || !user?.tenantId) return;
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, name')
+      .eq('role', 'manager')
+      .eq('tenant_id', user.tenantId)
+      .eq('is_active', true)
+      .order('name');
+    setManagers((data ?? []).map(r => ({ id: r.id, name: r.name ?? '' })));
+  }, [canSeeAdminList, user?.tenantId]);
+
+  useEffect(() => {
+    fetchManagers();
+  }, [fetchManagers]);
+
+  const fetchAdminList = useCallback(async () => {
+    if (!canSeeAdminList || !user?.tenantId) return;
+    setIsLoadingAdminList(true);
+    let query = supabase
+      .from('assessment_admin_list')
+      .select('*', { count: 'exact' })
+      .order('name');
+    if (filterDepartment !== 'all') query = query.eq('department', filterDepartment);
+    if (filterManager !== 'all') query = query.eq('manager_id', filterManager);
+    if (filterStatus !== 'all') query = query.eq('status', filterStatus);
+    if (debouncedFilterName.trim()) query = query.ilike('name', `%${debouncedFilterName.trim()}%`);
+    query = query.range((adminPage - 1) * adminPageSize, adminPage * adminPageSize - 1);
+    const { data, error, count } = await query;
+    if (!error) {
+      setAdminTotalCount(count ?? 0);
+      setAdminList((data ?? []) as AssessmentAdminRow[]);
+    }
+    setIsLoadingAdminList(false);
+  }, [canSeeAdminList, user?.tenantId, adminPage, adminPageSize, filterDepartment, filterManager, filterStatus, debouncedFilterName]);
+
+  useEffect(() => {
+    if (!canSeeAdminList) return;
+    fetchAdminList();
+  }, [canSeeAdminList, fetchAdminList]);
+
+  const upsertAssessment = useCallback(
+    async (updates: {
+      status: AssessmentStatus;
+      answers?: Record<string, string>;
+      result?: string | null;
+      completed_at?: string | null;
+    }) => {
+      if (!user?.id || !user?.tenantId) return;
+      setIsSaving(true);
+      const payload = {
+        user_id: user.id,
+        tenant_id: user.tenantId,
+        status: updates.status,
+        answers: updates.answers ?? null,
+        result: updates.result ?? null,
+        completed_at: updates.completed_at ?? null,
+        updated_at: new Date().toISOString(),
+      };
+      await supabase.from('behavioral_assessments').upsert(payload, {
+        onConflict: 'user_id',
+      });
+      setIsSaving(false);
+      setMyAssessment(prev => (prev ? { ...prev, ...updates } : null));
+    },
+    [user?.id, user?.tenantId]
+  );
 
   const handleAnswer = (questionId: string, value: 'D' | 'I' | 'S' | 'C') => {
     setAnswers(prev => ({ ...prev, [questionId]: value }));
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentQuestion < discQuestions.length - 1) {
       setCurrentQuestion(prev => prev + 1);
+      await upsertAssessment({
+        status: 'in_progress',
+        answers: answers as Record<string, string>,
+      });
     } else {
+      const finalAnswers = { ...answers, [discQuestions[currentQuestion].id]: answers[discQuestions[currentQuestion].id] } as Record<string, 'D' | 'I' | 'S' | 'C'>;
+      const counts = { D: 0, I: 0, S: 0, C: 0 };
+      Object.values(finalAnswers).forEach(v => { counts[v]++; });
+      const resultKey = (Object.keys(counts) as Array<'D' | 'I' | 'S' | 'C'>).reduce((a, b) => (counts[a] > counts[b] ? a : b));
       setShowResult(true);
+      await upsertAssessment({
+        status: 'completed',
+        answers: finalAnswers as Record<string, string>,
+        result: resultKey,
+        completed_at: new Date().toISOString(),
+      });
     }
   };
 
@@ -318,15 +561,14 @@ export default function Assessment() {
     }
   };
 
-  const calculateResult = () => {
+  const calculateResult = (): 'D' | 'I' | 'S' | 'C' => {
     const counts = { D: 0, I: 0, S: 0, C: 0 };
     Object.values(answers).forEach(value => {
       counts[value]++;
     });
-    const dominant = (Object.keys(counts) as Array<'D' | 'I' | 'S' | 'C'>).reduce((a, b) =>
+    return (Object.keys(counts) as Array<'D' | 'I' | 'S' | 'C'>).reduce((a, b) =>
       counts[a] > counts[b] ? a : b
     );
-    return dominant;
   };
 
   const progress = ((currentQuestion + 1) / discQuestions.length) * 100;
@@ -334,10 +576,45 @@ export default function Assessment() {
   const result = showResult ? discProfiles[calculateResult()] : null;
   const ResultIcon = result?.icon || Brain;
 
-  if (!hasCompleted && !showResult && currentQuestion === 0 && Object.keys(answers).length === 0) {
-    // Introduction screen
-    return (
-      <MainLayout>
+  const isIntroShown = !showResult && currentQuestion === 0 && Object.keys(answers).length === 0;
+  const canContinue = myAssessment?.status === 'in_progress' && myAssessment.answers && typeof myAssessment.answers === 'object' && Object.keys(myAssessment.answers).length > 0;
+
+  const adminTotalPages = Math.ceil(adminTotalCount / adminPageSize) || 1;
+  const adminStartRow = adminTotalCount === 0 ? 0 : (adminPage - 1) * adminPageSize + 1;
+  const adminEndRow = Math.min(adminPage * adminPageSize, adminTotalCount);
+  const adminHasActiveFilters = filterDepartment !== 'all' || filterManager !== 'all' || filterStatus !== 'all' || filterName.trim() !== '';
+  const adminListWithManagerName: AdminRowWithManager[] = useMemo(() => {
+    return adminList.map(row => ({
+      ...row,
+      manager_name: row.manager_id ? managers.find(m => m.id === row.manager_id)?.name ?? null : null,
+    }));
+  }, [adminList, managers]);
+
+  const handleStartOrContinue = () => {
+    if (canContinue && myAssessment?.answers) {
+      const restored = myAssessment.answers as Record<string, 'D' | 'I' | 'S' | 'C'>;
+      setAnswers(restored);
+      const firstUnanswered = discQuestions.findIndex(q => !restored[q.id]);
+      if (firstUnanswered === -1) setShowResult(true);
+      else setCurrentQuestion(firstUnanswered);
+    } else {
+      setCurrentQuestion(1);
+    }
+  };
+
+  let mainContent: React.ReactNode;
+
+  if (canTake && isIntroShown) {
+    if (isLoadingMyAssessment) {
+      mainContent = (
+        <div className="max-w-2xl mx-auto animate-fade-in p-4 md:p-6">
+          <div className="card-elevated p-8 text-center">
+            <p className="text-muted-foreground">Carregando...</p>
+          </div>
+        </div>
+      );
+    } else {
+      mainContent = (
         <div className="max-w-2xl mx-auto animate-fade-in">
           <div className="text-center mb-8">
             <div className="w-20 h-20 rounded-2xl gradient-hero flex items-center justify-center mx-auto mb-6">
@@ -349,6 +626,16 @@ export default function Assessment() {
             <p className="text-muted-foreground mt-2">
               Descubra seu perfil comportamental e entenda seus pontos fortes
             </p>
+            {myAssessment && (
+              <p className="text-sm text-muted-foreground mt-2">
+                Seu status:{' '}
+                {myAssessment.status === 'completed' && myAssessment.completed_at
+                  ? `Concluído em ${new Date(myAssessment.completed_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}`
+                  : myAssessment.status === 'in_progress'
+                    ? 'Em progresso'
+                    : 'Não iniciado'}
+              </p>
+            )}
           </div>
 
           <div className="card-elevated p-8 text-center">
@@ -387,9 +674,10 @@ export default function Assessment() {
 
             <Button
               className="w-full gradient-hero py-6 text-lg"
-              onClick={() => setCurrentQuestion(0)}
+              onClick={handleStartOrContinue}
+              disabled={isSaving}
             >
-              Iniciar Teste
+              {canContinue ? 'Continuar' : 'Iniciar Teste'}
               <ChevronRight className="w-5 h-5 ml-2" />
             </Button>
 
@@ -398,90 +686,96 @@ export default function Assessment() {
             </p>
           </div>
         </div>
-      </MainLayout>
-    );
-  }
+      );
+    }
+  } else if (showResult && result) {
+    mainContent = (
+      <div className="max-w-2xl mx-auto animate-fade-in">
+        <div className="text-center mb-8">
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <CheckCircle2 className="w-6 h-6 text-primary" />
+            <span className="text-primary font-medium">Teste Concluído</span>
+          </div>
+          <h1 className="text-3xl font-display font-bold text-foreground">
+            Seu Perfil DISC
+          </h1>
+        </div>
 
-  if (showResult && result) {
-    return (
-      <MainLayout>
-        <div className="max-w-2xl mx-auto animate-fade-in">
+        <div className="card-elevated p-8">
           <div className="text-center mb-8">
-            <div className="flex items-center justify-center gap-2 mb-4">
-              <CheckCircle2 className="w-6 h-6 text-primary" />
-              <span className="text-primary font-medium">Teste Concluído</span>
+            <div className={`w-24 h-24 rounded-2xl bg-gradient-to-r ${result.color} flex items-center justify-center mx-auto mb-4`}>
+              <ResultIcon className="w-12 h-12 text-white" />
             </div>
-            <h1 className="text-3xl font-display font-bold text-foreground">
-              Seu Perfil DISC
-            </h1>
+            <h2 className="text-2xl font-display font-bold text-foreground">
+              {result.name}
+            </h2>
+            <p className="text-muted-foreground mt-2 max-w-md mx-auto">
+              {result.description}
+            </p>
           </div>
 
-          <div className="card-elevated p-8">
-            <div className="text-center mb-8">
-              <div className={`w-24 h-24 rounded-2xl bg-gradient-to-r ${result.color} flex items-center justify-center mx-auto mb-4`}>
-                <ResultIcon className="w-12 h-12 text-white" />
-              </div>
-              <h2 className="text-2xl font-display font-bold text-foreground">
-                {result.name}
-              </h2>
-              <p className="text-muted-foreground mt-2 max-w-md mx-auto">
-                {result.description}
-              </p>
+          <div className="mb-8">
+            <h3 className="font-semibold text-foreground mb-4">Características Principais</h3>
+            <div className="flex flex-wrap gap-2">
+              {result.traits.map((trait) => (
+                <span
+                  key={trait}
+                  className={`px-4 py-2 rounded-full text-sm font-medium text-white bg-gradient-to-r ${result.color}`}
+                >
+                  {trait}
+                </span>
+              ))}
             </div>
+          </div>
 
-            <div className="mb-8">
-              <h3 className="font-semibold text-foreground mb-4">Características Principais</h3>
-              <div className="flex flex-wrap gap-2">
-                {result.traits.map((trait) => (
-                  <span
-                    key={trait}
-                    className={`px-4 py-2 rounded-full text-sm font-medium text-white bg-gradient-to-r ${result.color}`}
-                  >
-                    {trait}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-4 gap-4 mb-8">
-              {Object.entries(discProfiles).map(([key, profile]) => {
-                const count = Object.values(answers).filter(v => v === key).length;
-                const percentage = (count / discQuestions.length) * 100;
-                return (
-                  <div key={key} className="text-center">
-                    <div className={`w-full h-2 rounded-full bg-muted mb-2 overflow-hidden`}>
-                      <div
-                        className={`h-full bg-gradient-to-r ${profile.color} transition-all duration-500`}
-                        style={{ width: `${percentage}%` }}
-                      />
-                    </div>
-                    <p className="text-sm font-medium text-foreground">{key}</p>
-                    <p className="text-xs text-muted-foreground">{Math.round(percentage)}%</p>
+          <div className="grid grid-cols-4 gap-4 mb-8">
+            {Object.entries(discProfiles).map(([key, profile]) => {
+              const count = Object.values(answers).filter(v => v === key).length;
+              const percentage = (count / discQuestions.length) * 100;
+              return (
+                <div key={key} className="text-center">
+                  <div className={`w-full h-2 rounded-full bg-muted mb-2 overflow-hidden`}>
+                    <div
+                      className={`h-full bg-gradient-to-r ${profile.color} transition-all duration-500`}
+                      style={{ width: `${percentage}%` }}
+                    />
                   </div>
-                );
-              })}
-            </div>
+                  <p className="text-sm font-medium text-foreground">{key}</p>
+                  <p className="text-xs text-muted-foreground">{Math.round(percentage)}%</p>
+                </div>
+              );
+            })}
+          </div>
 
-            <div className="flex gap-4">
-              <Button variant="outline" className="flex-1" onClick={() => {
+          <div className="flex gap-4">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={async () => {
                 setShowResult(false);
                 setCurrentQuestion(0);
                 setAnswers({});
-              }}>
-                Refazer Teste
-              </Button>
-              <Button className="flex-1 gradient-hero">
-                Baixar Relatório
-              </Button>
-            </div>
+                await upsertAssessment({
+                  status: 'in_progress',
+                  answers: {},
+                  result: null,
+                  completed_at: null,
+                });
+                fetchMyAssessment();
+              }}
+              disabled={isSaving}
+            >
+              Refazer Teste
+            </Button>
+            <Button className="flex-1 gradient-hero">
+              Baixar Relatório
+            </Button>
           </div>
         </div>
-      </MainLayout>
+      </div>
     );
-  }
-
-  return (
-    <MainLayout>
+  } else {
+    mainContent = (
       <div className="max-w-2xl mx-auto animate-fade-in">
         {/* Progress */}
         <div className="mb-8">
@@ -548,6 +842,308 @@ export default function Assessment() {
           </div>
         </div>
       </div>
+    );
+  }
+
+  const adminContent = (
+    <div className="space-y-6 animate-fade-in p-4 md:p-6">
+      <div>
+        <h2 className="text-xl font-display font-semibold text-foreground">
+          Acompanhamento de avaliações
+        </h2>
+        <p className="text-muted-foreground text-sm mt-1">
+          Status do teste comportamental por colaborador
+        </p>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <Sheet open={adminFiltersOpen} onOpenChange={setAdminFiltersOpen}>
+          <SheetTrigger asChild>
+            <Button variant="outline" size="sm" className="h-9 gap-2">
+              <SlidersHorizontal className="h-4 w-4" />
+              Filtros
+              {adminHasActiveFilters && (
+                <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-medium text-primary-foreground">
+                  •
+                </span>
+              )}
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="right" className="flex w-full flex-col p-0 sm:max-w-md">
+            <SheetHeader className="border-b px-6 py-4">
+              <SheetTitle>Filtros</SheetTitle>
+            </SheetHeader>
+            <ScrollArea className="flex-1">
+              <div className="flex flex-col gap-5 p-6">
+                <div className="flex flex-col gap-2">
+                  <Label className="text-sm text-muted-foreground">Nome</Label>
+                  <Input
+                    placeholder="Buscar por nome..."
+                    value={filterName}
+                    onChange={(e) => {
+                      setFilterName(e.target.value);
+                      setAdminPage(1);
+                    }}
+                    className="h-9 w-full"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label className="text-sm text-muted-foreground">Setor</Label>
+                  <Select
+                    value={filterDepartment}
+                    onValueChange={(v) => {
+                      setFilterDepartment(v);
+                      setAdminPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="h-9 w-full">
+                      <SelectValue placeholder="Todos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      {DEFAULT_DEPARTMENTS.map((d) => (
+                        <SelectItem key={d} value={d}>
+                          {d}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label className="text-sm text-muted-foreground">Equipe (gestor)</Label>
+                  <Select
+                    value={filterManager}
+                    onValueChange={(v) => {
+                      setFilterManager(v);
+                      setAdminPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="h-9 w-full">
+                      <SelectValue placeholder="Todos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      {managers.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>
+                          {m.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Label className="text-sm text-muted-foreground">Status</Label>
+                  <Select
+                    value={filterStatus}
+                    onValueChange={(v) => {
+                      setFilterStatus(v);
+                      setAdminPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="h-9 w-full">
+                      <SelectValue placeholder="Todos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="not_started">{ASSESSMENT_STATUS_LABELS.not_started}</SelectItem>
+                      <SelectItem value="in_progress">{ASSESSMENT_STATUS_LABELS.in_progress}</SelectItem>
+                      <SelectItem value="completed">{ASSESSMENT_STATUS_LABELS.completed}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="pt-2 space-y-2">
+                  <Button
+                    onClick={() => setAdminFiltersOpen(false)}
+                    className="w-full gradient-hero"
+                  >
+                    Aplicar
+                  </Button>
+                  {adminHasActiveFilters && (
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => {
+                        setFilterDepartment('all');
+                        setFilterManager('all');
+                        setFilterStatus('all');
+                        setFilterName('');
+                        setAdminPage(1);
+                        setAdminFiltersOpen(false);
+                      }}
+                    >
+                      Limpar filtros
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </ScrollArea>
+          </SheetContent>
+        </Sheet>
+        <div className="flex items-center gap-2">
+          <Label className="text-sm text-muted-foreground whitespace-nowrap">Por página</Label>
+          <Select
+            value={String(adminPageSize)}
+            onValueChange={(v) => {
+              setAdminPageSize(Number(v));
+              setAdminPage(1);
+            }}
+          >
+            <SelectTrigger className="h-9 w-[80px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PAGE_SIZE_OPTIONS.map((n) => (
+                <SelectItem key={n} value={String(n)}>
+                  {n}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="card-elevated overflow-hidden">
+        {isLoadingAdminList ? (
+          <div className="overflow-x-auto p-4">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead><Skeleton className="h-4 w-32" /></TableHead>
+                  <TableHead><Skeleton className="h-4 w-24" /></TableHead>
+                  <TableHead><Skeleton className="h-4 w-20" /></TableHead>
+                  <TableHead><Skeleton className="h-4 w-24" /></TableHead>
+                  <TableHead><Skeleton className="h-4 w-28" /></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-full" /></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        ) : adminListWithManagerName.length === 0 ? (
+          <div className="p-12 text-center text-muted-foreground">
+            <ClipboardList className="w-12 h-12 mx-auto mb-4 opacity-50" />
+            <p>Nenhum resultado encontrado</p>
+          </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Colaborador</TableHead>
+                    <TableHead>Setor</TableHead>
+                    <TableHead>Equipe</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Conclusão</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {adminListWithManagerName.map((row) => (
+                    <TableRow key={row.user_id}>
+                      <TableCell className="font-medium">{row.name ?? '—'}</TableCell>
+                      <TableCell>{row.department ?? '—'}</TableCell>
+                      <TableCell>{row.manager_name ?? '—'}</TableCell>
+                      <TableCell>{ASSESSMENT_STATUS_LABELS[row.status] ?? row.status}</TableCell>
+                      <TableCell>
+                        {row.completed_at
+                          ? new Date(row.completed_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                          : '—'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-4 border-t">
+              <p className="text-sm text-muted-foreground">
+                {adminStartRow}–{adminEndRow} de {adminTotalCount}
+              </p>
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (adminPage > 1) setAdminPage((p) => p - 1);
+                      }}
+                      className={adminPage <= 1 || isLoadingAdminList ? 'pointer-events-none opacity-50' : ''}
+                    />
+                  </PaginationItem>
+                  {(() => {
+                    const maxVisible = 5;
+                    let start = 1;
+                    let end = Math.min(maxVisible, adminTotalPages);
+                    if (adminTotalPages > maxVisible) {
+                      if (adminPage > adminTotalPages - 2) {
+                        start = adminTotalPages - 4;
+                        end = adminTotalPages;
+                      } else if (adminPage > 2) {
+                        start = adminPage - 2;
+                        end = adminPage + 2;
+                      }
+                    }
+                    return Array.from({ length: end - start + 1 }, (_, i) => {
+                      const pageNum = start + i;
+                      return (
+                        <PaginationItem key={pageNum}>
+                          <PaginationLink
+                            href="#"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setAdminPage(pageNum);
+                            }}
+                            isActive={adminPage === pageNum}
+                            className={isLoadingAdminList ? 'pointer-events-none' : ''}
+                          >
+                            {pageNum}
+                          </PaginationLink>
+                        </PaginationItem>
+                      );
+                    });
+                  })()}
+                  <PaginationItem>
+                    <PaginationNext
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (adminPage < adminTotalPages) setAdminPage((p) => p + 1);
+                      }}
+                      className={adminPage >= adminTotalPages || isLoadingAdminList ? 'pointer-events-none opacity-50' : ''}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+
+  return (
+    <MainLayout>
+      {canSeeAdminList ? (
+        <Tabs defaultValue="meu" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="meu">Meu teste</TabsTrigger>
+            <TabsTrigger value="admin">Acompanhamento</TabsTrigger>
+          </TabsList>
+          <TabsContent value="meu" className="mt-4">{mainContent}</TabsContent>
+          <TabsContent value="admin" className="mt-4">{adminContent}</TabsContent>
+        </Tabs>
+      ) : (
+        mainContent
+      )}
     </MainLayout>
   );
 }
