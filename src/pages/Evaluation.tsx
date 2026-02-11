@@ -42,6 +42,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNotifications } from '@/contexts/NotificationContext';
+import { usePeriodicityWindow } from '@/hooks/usePeriodicityWindow';
+import { PeriodUnavailableMessage } from '@/components/PeriodUnavailableMessage';
 import {
   canEvaluate,
   getFormTypeOptions,
@@ -548,6 +550,7 @@ function EvaluatedAsyncCombobox({
 export default function Evaluation() {
   const { user, isHR, isManager } = useAuth();
   const { fetchNotifications } = useNotifications();
+  const { isWithinPeriod, periodStatus, currentPeriod, nextPeriodStart } = usePeriodicityWindow('evaluation');
   const [activeTab, setActiveTab] = useState('recebidas');
   const [competencies, setCompetencies] = useState<Competency[]>([]);
   const [periods, setPeriods] = useState<EvaluationPeriod[]>([]);
@@ -1386,6 +1389,16 @@ export default function Evaluation() {
           </TabsContent>
 
           <TabsContent value="realizar" className="mt-6">
+            {!isWithinPeriod && periodStatus && (
+              <div className="mb-4">
+                <PeriodUnavailableMessage
+                  entityLabel="Avaliações 360°"
+                  periodStatus={periodStatus}
+                  currentPeriod={currentPeriod}
+                  nextPeriodStart={nextPeriodStart}
+                />
+              </div>
+            )}
             <div className="card-elevated p-6 space-y-6">
               <div className="space-y-2">
                 <Label>Tipo de avaliação</Label>
@@ -1478,7 +1491,8 @@ export default function Evaluation() {
                 <Button
                   className="gradient-hero"
                   onClick={handleSubmit}
-                  disabled={submitting || (formType !== 'self' && !formEvaluatedId)}
+                  disabled={submitting || (formType !== 'self' && !formEvaluatedId) || !isWithinPeriod}
+                  title={!isWithinPeriod ? 'Envio disponível apenas no período configurado em Configurações.' : undefined}
                 >
                   {submitting ? (
                     'Enviando...'

@@ -71,6 +71,49 @@ export function getCurrentPeriod(
   return null;
 }
 
+export type PeriodStatus = 'before' | 'within' | 'after';
+
+export interface PeriodStatusResult {
+  status: PeriodStatus;
+  currentPeriod: { periodStart: string; periodEnd: string } | null;
+  nextPeriodStart: string | null;
+}
+
+/**
+ * Returns period status (before / within / after), the current period if within, and the next period start for messaging.
+ */
+export function getPeriodStatus(
+  config: PeriodicityConfigForCheck,
+  date: Date = new Date()
+): PeriodStatusResult {
+  const ref = new Date(config.reference_start_date + 'T12:00:00Z');
+  if (isNaN(ref.getTime())) {
+    return { status: 'within', currentPeriod: null, nextPeriodStart: null };
+  }
+
+  const intervalDays = getIntervalDays(config);
+  let periodStart = new Date(ref);
+  let periodEnd = addDays(periodStart, intervalDays);
+  const dateStr = toDateOnly(date);
+
+  while (toDateOnly(periodEnd) < dateStr) {
+    periodStart = periodEnd;
+    periodEnd = addDays(periodStart, intervalDays);
+  }
+
+  const startStr = toDateOnly(periodStart);
+  const endStr = toDateOnly(periodEnd);
+
+  if (dateStr >= startStr && dateStr <= endStr) {
+    return { status: 'within', currentPeriod: { periodStart: startStr, periodEnd: endStr }, nextPeriodStart: null };
+  }
+  if (dateStr < startStr) {
+    return { status: 'before', currentPeriod: null, nextPeriodStart: startStr };
+  }
+  const nextStart = toDateOnly(periodEnd);
+  return { status: 'after', currentPeriod: null, nextPeriodStart: nextStart };
+}
+
 /**
  * Returns true when `date` falls inside the current cycle for the given periodicity config.
  */
@@ -79,5 +122,5 @@ export function isInsidePeriodicityWindow(
   date: Date = new Date()
 ): boolean {
   if (!config) return true;
-  return getCurrentPeriod(config, date) !== null;
+  return getPeriodStatus(config, date).status === 'within';
 }

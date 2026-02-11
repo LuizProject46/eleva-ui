@@ -54,8 +54,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useBehavioralReportDownload } from '@/hooks/useBehavioralReportDownload';
-import { isInsidePeriodicityWindow } from '@/lib/periodicity';
-import type { PeriodicityConfigForCheck } from '@/lib/periodicity';
+import { usePeriodicityWindow } from '@/hooks/usePeriodicityWindow';
+import { PeriodUnavailableMessage } from '@/components/PeriodUnavailableMessage';
 
 type AssessmentStatus = 'not_started' | 'in_progress' | 'completed';
 
@@ -424,10 +424,9 @@ export default function Assessment() {
   const [appliedFilterName, setAppliedFilterName] = useState('');
   const [managers, setManagers] = useState<ManagerOption[]>([]);
   const [adminFiltersOpen, setAdminFiltersOpen] = useState(false);
-  const [assessmentPeriodicityConfig, setAssessmentPeriodicityConfig] = useState<PeriodicityConfigForCheck | null>(null);
 
+  const { isWithinPeriod: isWithinAssessmentPeriod, periodStatus, currentPeriod, nextPeriodStart } = usePeriodicityWindow('assessment');
   const canTake = user?.role && canTakeAssessment(user.role);
-  const isWithinAssessmentPeriod = isInsidePeriodicityWindow(assessmentPeriodicityConfig);
 
   const fetchMyAssessment = useCallback(async () => {
     if (!canTake || !user?.id) return;
@@ -457,21 +456,6 @@ export default function Assessment() {
   useEffect(() => {
     fetchMyAssessment();
   }, [fetchMyAssessment]);
-
-  const fetchAssessmentPeriodicityConfig = useCallback(async () => {
-    if (!user?.tenantId) return;
-    const { data } = await supabase
-      .from('periodicity_config')
-      .select('reference_start_date, interval_kind, custom_interval_days, custom_interval_months')
-      .eq('tenant_id', user.tenantId)
-      .eq('entity_type', 'assessment')
-      .maybeSingle();
-    setAssessmentPeriodicityConfig(data as PeriodicityConfigForCheck | null);
-  }, [user?.tenantId]);
-
-  useEffect(() => {
-    fetchAssessmentPeriodicityConfig();
-  }, [fetchAssessmentPeriodicityConfig]);
 
   useEffect(() => {
     if (!myAssessment || myAssessment.status !== 'in_progress' || !myAssessment.answers || typeof myAssessment.answers !== 'object') return;
@@ -712,11 +696,22 @@ export default function Assessment() {
               className="w-full gradient-hero py-6 text-lg"
               onClick={handleStartOrContinue}
               disabled={isSaving || !isWithinAssessmentPeriod}
-              title={!isWithinAssessmentPeriod ? 'Refazer teste disponível apenas dentro do período configurado em Configurações.' : undefined}
+              title={!isWithinAssessmentPeriod ? 'Teste disponível apenas dentro do período configurado em Configurações.' : undefined}
             >
               {canContinue ? 'Continuar' : !isWithinAssessmentPeriod ? 'Teste indisponível no momento' : 'Iniciar Teste'}
               <ChevronRight className="w-5 h-5 ml-2" />
             </Button>
+
+            {!isWithinAssessmentPeriod && periodStatus && (
+              <div className="mt-4">
+                <PeriodUnavailableMessage
+                  entityLabel="Teste DISC"
+                  periodStatus={periodStatus}
+                  currentPeriod={currentPeriod}
+                  nextPeriodStart={nextPeriodStart}
+                />
+              </div>
+            )}
 
             <p className="text-xs text-muted-foreground mt-4">
               Tempo estimado: 5 minutos
@@ -785,34 +780,50 @@ export default function Assessment() {
             })}
           </div>
 
-          <div className="flex gap-4">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={async () => {
-                setShowResult(false);
-                setCurrentQuestion(0);
-                setAnswers({});
-                await upsertAssessment({
-                  status: 'in_progress',
-                  answers: {},
-                  result: null,
-                  completed_at: null,
-                });
-                fetchMyAssessment();
-              }}
-              disabled={isSaving || !isWithinAssessmentPeriod}
-              title={!isWithinAssessmentPeriod ? 'Refazer teste disponível apenas dentro do período configurado em Configurações.' : undefined}
-            >
-              Refazer Teste
-            </Button>
-            <Button
-              className="flex-1 gradient-hero"
-              disabled={isDownloading}
-              onClick={() => downloadReport()}
-            >
-              {isDownloading ? 'Gerando PDF…' : 'Baixar Relatório (PDF)'}
-            </Button>
+          <div className="flex gap-4 flex-col">
+            <div>
+              {!isWithinAssessmentPeriod && periodStatus && (
+                <div className="mt-4">
+                  <PeriodUnavailableMessage
+                    entityLabel="Teste DISC"
+                    periodStatus={periodStatus}
+                    currentPeriod={currentPeriod}
+                    nextPeriodStart={nextPeriodStart}
+                  />
+                </div>
+              )}
+
+            </div>
+
+            <div className="flex gap-4">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={async () => {
+                  setShowResult(false);
+                  setCurrentQuestion(0);
+                  setAnswers({});
+                  await upsertAssessment({
+                    status: 'in_progress',
+                    answers: {},
+                    result: null,
+                    completed_at: null,
+                  });
+                  fetchMyAssessment();
+                }}
+                disabled={isSaving || !isWithinAssessmentPeriod}
+                title={!isWithinAssessmentPeriod ? 'Refazer teste disponível apenas dentro do período configurado em Configurações.' : undefined}
+              >
+                Refazer Teste
+              </Button>
+              <Button
+                className="flex-1 gradient-hero"
+                disabled={isDownloading}
+                onClick={() => downloadReport()}
+              >
+                {isDownloading ? 'Gerando PDF…' : 'Baixar Relatório (PDF)'}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
