@@ -416,7 +416,10 @@ export default function Assessment() {
   const [filterManager, setFilterManager] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterName, setFilterName] = useState('');
-  const [debouncedFilterName, setDebouncedFilterName] = useState('');
+  const [appliedFilterDepartment, setAppliedFilterDepartment] = useState('all');
+  const [appliedFilterManager, setAppliedFilterManager] = useState('all');
+  const [appliedFilterStatus, setAppliedFilterStatus] = useState('all');
+  const [appliedFilterName, setAppliedFilterName] = useState('');
   const [managers, setManagers] = useState<ManagerOption[]>([]);
   const [adminFiltersOpen, setAdminFiltersOpen] = useState(false);
 
@@ -465,11 +468,6 @@ export default function Assessment() {
     }
   }, [myAssessment?.id, myAssessment?.status, myAssessment?.answers]);
 
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedFilterName(filterName), 400);
-    return () => clearTimeout(t);
-  }, [filterName]);
-
   const fetchManagers = useCallback(async () => {
     if (!canSeeAdminList || !user?.tenantId) return;
     const { data } = await supabase
@@ -494,10 +492,10 @@ export default function Assessment() {
       .select('*', { count: 'exact' })
       .neq('user_id', user.id)
       .order('name');
-    if (filterDepartment !== 'all') query = query.eq('department', filterDepartment);
-    if (filterManager !== 'all') query = query.eq('manager_id', filterManager);
-    if (filterStatus !== 'all') query = query.eq('status', filterStatus);
-    if (debouncedFilterName.trim()) query = query.ilike('name', `%${debouncedFilterName.trim()}%`);
+    if (appliedFilterDepartment !== 'all') query = query.eq('department', appliedFilterDepartment);
+    if (appliedFilterManager !== 'all') query = query.eq('manager_id', appliedFilterManager);
+    if (appliedFilterStatus !== 'all') query = query.eq('status', appliedFilterStatus);
+    if (appliedFilterName.trim()) query = query.ilike('name', `%${appliedFilterName.trim()}%`);
     query = query.range((adminPage - 1) * adminPageSize, adminPage * adminPageSize - 1);
     const { data, error, count } = await query;
     if (!error) {
@@ -505,7 +503,7 @@ export default function Assessment() {
       setAdminList((data ?? []) as AssessmentAdminRow[]);
     }
     setIsLoadingAdminList(false);
-  }, [canSeeAdminList, user?.tenantId, adminPage, adminPageSize, filterDepartment, filterManager, filterStatus, debouncedFilterName]);
+  }, [canSeeAdminList, user?.tenantId, adminPage, adminPageSize, appliedFilterDepartment, appliedFilterManager, appliedFilterStatus, appliedFilterName]);
 
   useEffect(() => {
     if (!canSeeAdminList) return;
@@ -593,7 +591,13 @@ export default function Assessment() {
   const adminTotalPages = Math.ceil(adminTotalCount / adminPageSize) || 1;
   const adminStartRow = adminTotalCount === 0 ? 0 : (adminPage - 1) * adminPageSize + 1;
   const adminEndRow = Math.min(adminPage * adminPageSize, adminTotalCount);
-  const adminHasActiveFilters = filterDepartment !== 'all' || filterManager !== 'all' || filterStatus !== 'all' || filterName.trim() !== '';
+  const adminHasActiveFilters = appliedFilterDepartment !== 'all' || appliedFilterManager !== 'all' || appliedFilterStatus !== 'all' || appliedFilterName.trim() !== '';
+  const adminActiveFilterCount = [
+    appliedFilterDepartment !== 'all',
+    appliedFilterManager !== 'all',
+    appliedFilterStatus !== 'all',
+    appliedFilterName.trim() !== '',
+  ].filter(Boolean).length;
   const adminListWithManagerName: AdminRowWithManager[] = useMemo(() => {
     return adminList.map(row => ({
       ...row,
@@ -884,7 +888,7 @@ export default function Assessment() {
               Filtros
               {adminHasActiveFilters && (
                 <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-medium text-primary-foreground">
-                  •
+                  {adminActiveFilterCount}
                 </span>
               )}
             </Button>
@@ -973,7 +977,14 @@ export default function Assessment() {
                 </div>
                 <div className="pt-2 space-y-2">
                   <Button
-                    onClick={() => setAdminFiltersOpen(false)}
+                    onClick={() => {
+                      setAppliedFilterDepartment(filterDepartment);
+                      setAppliedFilterManager(filterManager);
+                      setAppliedFilterStatus(filterStatus);
+                      setAppliedFilterName(filterName);
+                      setAdminPage(1);
+                      setAdminFiltersOpen(false);
+                    }}
                     className="w-full gradient-hero"
                   >
                     Aplicar
@@ -987,6 +998,10 @@ export default function Assessment() {
                         setFilterManager('all');
                         setFilterStatus('all');
                         setFilterName('');
+                        setAppliedFilterDepartment('all');
+                        setAppliedFilterManager('all');
+                        setAppliedFilterStatus('all');
+                        setAppliedFilterName('');
                         setAdminPage(1);
                         setAdminFiltersOpen(false);
                       }}
