@@ -402,7 +402,7 @@ export default function Assessment() {
 
   const [myAssessment, setMyAssessment] = useState<BehavioralAssessmentRow | null>(null);
   const [isLoadingMyAssessment, setIsLoadingMyAssessment] = useState(true);
-  const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [currentQuestion, setCurrentQuestion] = useState(-1);
   const [answers, setAnswers] = useState<Record<string, 'D' | 'I' | 'S' | 'C'>>({});
   const [showResult, setShowResult] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -439,10 +439,10 @@ export default function Assessment() {
     setAnswers(data?.answers as Record<string, 'D' | 'I' | 'S' | 'C'> || {});
 
 
-    if (data?.status === 'completed') {
+    if (data?.status === 'completed' && data?.completed_at) {
       setShowResult(true);
     } else {
-      setCurrentQuestion(1);
+      Object.keys(data?.answers || {}).length > 0 ? setCurrentQuestion(Object.keys(data?.answers || {}).length - 1) : setCurrentQuestion(-1);
     }
     setIsLoadingMyAssessment(false);
   }, [canTake, user?.id]);
@@ -454,8 +454,10 @@ export default function Assessment() {
   useEffect(() => {
     if (!myAssessment || myAssessment.status !== 'in_progress' || !myAssessment.answers || typeof myAssessment.answers !== 'object') return;
     const restored = myAssessment.answers as Record<string, 'D' | 'I' | 'S' | 'C'>;
-    setAnswers(restored);
     const firstUnanswered = discQuestions.findIndex(q => !restored[q.id]);
+
+    setAnswers(restored);
+
     if (firstUnanswered === -1) {
       setShowResult(true);
     } else {
@@ -490,6 +492,7 @@ export default function Assessment() {
     let query = supabase
       .from('assessment_admin_list')
       .select('*', { count: 'exact' })
+      .neq('user_id', user.id)
       .order('name');
     if (filterDepartment !== 'all') query = query.eq('department', filterDepartment);
     if (filterManager !== 'all') query = query.eq('manager_id', filterManager);
@@ -570,6 +573,7 @@ export default function Assessment() {
 
   const calculateResult = (): 'D' | 'I' | 'S' | 'C' => {
     const counts = { D: 0, I: 0, S: 0, C: 0 };
+
     Object.values(answers).forEach(value => {
       counts[value]++;
     });
@@ -583,7 +587,7 @@ export default function Assessment() {
   const result = showResult ? discProfiles[calculateResult()] : null;
   const ResultIcon = result?.icon || Brain;
 
-  const isIntroShown = !showResult && currentQuestion === 0 && Object.keys(answers).length === 0;
+  const isIntroShown = !showResult && currentQuestion === -1 && Object.keys(answers).length === 0;
   const canContinue = myAssessment?.status === 'in_progress' && myAssessment.answers && typeof myAssessment.answers === 'object' && Object.keys(myAssessment.answers).length > 0;
 
   const adminTotalPages = Math.ceil(adminTotalCount / adminPageSize) || 1;
@@ -597,7 +601,7 @@ export default function Assessment() {
     }));
   }, [adminList, managers]);
 
-  const handleStartOrContinue = () => {
+  const handleStartOrContinue = async () => {
     if (canContinue && myAssessment?.answers) {
       const restored = myAssessment.answers as Record<string, 'D' | 'I' | 'S' | 'C'>;
       setAnswers(restored);
@@ -605,7 +609,11 @@ export default function Assessment() {
       if (firstUnanswered === -1) setShowResult(true);
       else setCurrentQuestion(firstUnanswered);
     } else {
-      setCurrentQuestion(1);
+      setCurrentQuestion(0);
+      await upsertAssessment({
+        status: 'in_progress',
+        answers: {},
+      });
     }
   };
 
@@ -694,6 +702,7 @@ export default function Assessment() {
       );
     }
   } else if (showResult && result) {
+
     mainContent = (
       <div className="max-w-2xl mx-auto animate-fade-in">
         <div className="text-center mb-8">
@@ -832,14 +841,16 @@ export default function Assessment() {
 
           {/* Navigation */}
           <div className="flex gap-4 mt-8">
-            <Button
-              variant="outline"
-              onClick={handlePrevious}
-              disabled={currentQuestion === 0}
-            >
-              <ChevronLeft className="w-4 h-4 mr-2" />
-              Anterior
-            </Button>
+            {currentQuestion > 0 && (
+              <Button
+                variant="outline"
+                onClick={handlePrevious}
+              >
+                <ChevronLeft className="w-4 h-4 mr-2" />
+                Anterior
+              </Button>
+            )}
+
             <Button
               className="flex-1 gradient-hero"
               onClick={handleNext}
@@ -891,7 +902,7 @@ export default function Assessment() {
                     value={filterName}
                     onChange={(e) => {
                       setFilterName(e.target.value);
-                      setAdminPage(1);
+
                     }}
                     className="h-9 w-full"
                   />
@@ -902,7 +913,7 @@ export default function Assessment() {
                     value={filterDepartment}
                     onValueChange={(v) => {
                       setFilterDepartment(v);
-                      setAdminPage(1);
+
                     }}
                   >
                     <SelectTrigger className="h-9 w-full">
@@ -924,7 +935,7 @@ export default function Assessment() {
                     value={filterManager}
                     onValueChange={(v) => {
                       setFilterManager(v);
-                      setAdminPage(1);
+
                     }}
                   >
                     <SelectTrigger className="h-9 w-full">
@@ -946,7 +957,7 @@ export default function Assessment() {
                     value={filterStatus}
                     onValueChange={(v) => {
                       setFilterStatus(v);
-                      setAdminPage(1);
+
                     }}
                   >
                     <SelectTrigger className="h-9 w-full">

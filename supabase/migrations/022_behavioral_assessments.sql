@@ -38,16 +38,21 @@ CREATE POLICY "HR can view all tenant assessments" ON behavioral_assessments
 CREATE POLICY "Managers can view same sector or team assessments" ON behavioral_assessments
   FOR SELECT
   USING (
-    public.get_my_profile_role() = 'manager'
-    AND tenant_id = public.get_my_profile_tenant_id()
-    AND EXISTS (
-      SELECT 1 FROM public.profiles p
-      WHERE p.id = behavioral_assessments.user_id
-        AND (
-          p.department IS NOT DISTINCT FROM public.get_my_profile_department()
-          OR p.manager_id = auth.uid()
+    
+   public.get_my_profile_role() = 'manager'
+  AND behavioral_assessments.tenant_id = public.get_my_profile_tenant_id()
+  AND EXISTS (
+    SELECT 1
+    FROM public.profiles p
+    WHERE p.id = behavioral_assessments.user_id
+      AND (
+        p.manager_id = auth.uid()
+        OR (
+          p.department IS NOT NULL
+          AND p.department IS NOT DISTINCT FROM public.get_my_profile_department()
         )
-    )
+      )
+  )
   );
 
 -- INSERT: only own row; tenant_id must match current user's tenant
@@ -86,17 +91,51 @@ GRANT SELECT, INSERT, UPDATE ON behavioral_assessments TO authenticated;
 
 -- View: one row per eligible user (employee, hr, manager) with assessment status for admin list.
 -- RLS on profiles and behavioral_assessments applies when selecting from the view.
-CREATE VIEW assessment_admin_list AS
+CREATE OR REPLACE VIEW assessment_admin_list
+WITH (security_invoker = true)
+AS
 SELECT
-  p.id AS user_id,
+  p.id           AS user_id,
   p.name,
   p.department,
   p.manager_id,
-  COALESCE(b.status, 'not_started') AS status,
+  CASE
+    WHEN b.id IS NULL THEN 'not_started'
+    ELSE b.status
+  END            AS status,
   b.completed_at
 FROM profiles p
-LEFT JOIN behavioral_assessments b ON b.user_id = p.id
-WHERE p.role IN ('employee', 'hr', 'manager')
-  AND p.tenant_id IS NOT NULL;
+LEFT JOIN LATERAL (
+  SELECT
+    ba.id,
+    ba.status,
+    ba.completed_at
+  FROM behavioral_assessments ba
+  WHERE ba.user_id = p.id
+  ORDER BY ba.created_at DESC
+  LIMIT 1
+) b ON true
+WHERE
+  p.tenant_id = public.get_my_profile_tenant_id()
+  AND (
+    -- HR vê todos
+    public.get_my_profile_role() = 'hr'
+
+    -- Manager vê SOMENTE subordinados diretos
+    OR (
+      public.get_my_profile_role() = 'manager'
+     AND (
+        manager_id = auth.uid()
+        OR department IS NOT DISTINCT FROM public.get_my_profile_department()
+      )
+    )
+
+    -- Employee vê apenas a si mesmo
+    OR (
+      public.get_my_profile_role() = 'employee'
+      AND p.id = auth.uid()
+    )
+  );
+
 
 GRANT SELECT ON assessment_admin_list TO authenticated;
