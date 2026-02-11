@@ -89,53 +89,104 @@ CREATE TRIGGER behavioral_assessments_updated_at
 
 GRANT SELECT, INSERT, UPDATE ON behavioral_assessments TO authenticated;
 
+-- SECURITY DEFINER function: returns assessment admin list without relying on RLS for the base scan.
+-- Avoids RLS recursion / inlining issues when the view was reading profiles directly.
+CREATE OR REPLACE FUNCTION public.get_assessment_admin_list()
+RETURNS TABLE (
+  user_id uuid,
+  name text,
+  department text,
+  manager_id uuid,
+  status text,
+  completed_at timestamptz
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+STABLE
+AS $$
+DECLARE
+  my_tenant_id uuid;
+  my_role text;
+  my_department text;
+BEGIN
+  SELECT p.tenant_id, p.role::text, p.department
+  INTO my_tenant_id, my_role, my_department
+  FROM public.profiles p
+  WHERE p.id = auth.uid()
+  LIMIT 1;
+
+  IF my_tenant_id IS NULL THEN
+    RETURN;
+  END IF;
+
+  RETURN QUERY
+  SELECT
+    p.id,
+    p.name,
+    p.department,
+    p.manager_id,
+    CASE WHEN b.id IS NULL THEN 'not_started'::text ELSE b.status END,
+    b.completed_at
+  FROM public.profiles p
+  LEFT JOIN LATERAL (
+    SELECT ba.id, ba.status, ba.completed_at
+    FROM public.behavioral_assessments ba
+    WHERE ba.user_id = p.id
+    ORDER BY ba.created_at DESC
+    LIMIT 1
+  ) b ON true
+  WHERE p.tenant_id = my_tenant_id
+  AND (
+    my_role = 'hr'
+    OR (my_role = 'manager' AND (p.manager_id = auth.uid() OR p.department IS NOT DISTINCT FROM my_department))
+    OR (my_role = 'employee' AND p.id = auth.uid())
+  );
+END;
+$$;
+
 -- View: one row per eligible user (employee, hr, manager) with assessment status for admin list.
--- RLS on profiles and behavioral_assessments applies when selecting from the view.
+-- Delegates to SECURITY DEFINER function so RLS on profiles is not used for the list (no recursion).
 CREATE OR REPLACE VIEW assessment_admin_list
 WITH (security_invoker = true)
 AS
-SELECT
-  p.id           AS user_id,
-  p.name,
-  p.department,
-  p.manager_id,
-  CASE
-    WHEN b.id IS NULL THEN 'not_started'
-    ELSE b.status
-  END            AS status,
-  b.completed_at
-FROM profiles p
-LEFT JOIN LATERAL (
-  SELECT
-    ba.id,
-    ba.status,
-    ba.completed_at
-  FROM behavioral_assessments ba
-  WHERE ba.user_id = p.id
-  ORDER BY ba.created_at DESC
-  LIMIT 1
-) b ON true
-WHERE
-  p.tenant_id = public.get_my_profile_tenant_id()
-  AND (
-    -- HR vê todos
-    public.get_my_profile_role() = 'hr'
-
-    -- Manager vê SOMENTE subordinados diretos
-    OR (
-      public.get_my_profile_role() = 'manager'
-     AND (
-        manager_id = auth.uid()
-        OR department IS NOT DISTINCT FROM public.get_my_profile_department()
-      )
-    )
-
-    -- Employee vê apenas a si mesmo
-    OR (
-      public.get_my_profile_role() = 'employee'
-      AND p.id = auth.uid()
-    )
-  );
-
+SELECT * FROM public.get_assessment_admin_list();
 
 GRANT SELECT ON assessment_admin_list TO authenticated;
+
+-- Recreate profile helpers as plpgsql + VOLATILE so they are not inlined (avoids RLS recursion in policies/views).
+CREATE OR REPLACE FUNCTION public.get_my_profile_tenant_id()
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+VOLATILE
+AS $$
+BEGIN
+  RETURN (SELECT tenant_id FROM public.profiles WHERE id = auth.uid() LIMIT 1);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.get_my_profile_role()
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+VOLATILE
+AS $$
+BEGIN
+  RETURN (SELECT role::text FROM public.profiles WHERE id = auth.uid() LIMIT 1);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.get_my_profile_department()
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+VOLATILE
+AS $$
+BEGIN
+  RETURN (SELECT department FROM public.profiles WHERE id = auth.uid() LIMIT 1);
+END;
+$$;
