@@ -5,6 +5,11 @@ import { Button } from '@/components/ui/button';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { cn } from '@/lib/utils';
 
+function getNotificationLink(type: string): string {
+  if (type === 'assessment_period_reminder') return '/assessment';
+  return '/evaluation';
+}
+
 export function NotificationBell() {
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
   const unread = notifications.filter((n) => !n.read_at);
@@ -45,7 +50,7 @@ export function NotificationBell() {
               {displayList.map((n) => (
                 <li key={n.id}>
                   <Link
-                    to="/evaluation"
+                    to={getNotificationLink(n.type)}
                     onClick={() => markAsRead(n.id)}
                     className={cn(
                       "block px-4 py-3 text-left hover:bg-muted/50 transition-colors",

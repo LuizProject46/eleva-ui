@@ -6,10 +6,11 @@ import { useTenant } from '@/contexts/TenantContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Building2, User, Save } from 'lucide-react';
+import { Building2, User, Save, CalendarClock } from 'lucide-react';
 import { toast } from 'sonner';
 import { isHexColor, normalizeHex } from '@/lib/branding';
 import { ImageUpload } from '@/components/settings/ImageUpload';
+import { PeriodicityConfig } from '@/components/settings/PeriodicityConfig';
 import { supabase } from '@/lib/supabase';
 
 function normalizeHexInput(value: string): string {
@@ -285,6 +286,25 @@ export default function Settings() {
                   </Button>
                 </div>
               </div>
+            </div>
+          )}
+
+          {showBrandSettings && tenant?.id && (
+            <div className="card-elevated p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <CalendarClock className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h2 className="font-display font-semibold text-foreground">
+                    Periodicidade de avaliações e testes
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    Defina intervalos e antecedência das notificações para avaliações 360° e testes DISC
+                  </p>
+                </div>
+              </div>
+              <PeriodicityConfig tenantId={tenant.id} />
             </div>
           )}
         </div>

@@ -54,6 +54,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useBehavioralReportDownload } from '@/hooks/useBehavioralReportDownload';
+import { isInsidePeriodicityWindow } from '@/lib/periodicity';
+import type { PeriodicityConfigForCheck } from '@/lib/periodicity';
 
 type AssessmentStatus = 'not_started' | 'in_progress' | 'completed';
 
@@ -422,8 +424,10 @@ export default function Assessment() {
   const [appliedFilterName, setAppliedFilterName] = useState('');
   const [managers, setManagers] = useState<ManagerOption[]>([]);
   const [adminFiltersOpen, setAdminFiltersOpen] = useState(false);
+  const [assessmentPeriodicityConfig, setAssessmentPeriodicityConfig] = useState<PeriodicityConfigForCheck | null>(null);
 
   const canTake = user?.role && canTakeAssessment(user.role);
+  const isWithinAssessmentPeriod = isInsidePeriodicityWindow(assessmentPeriodicityConfig);
 
   const fetchMyAssessment = useCallback(async () => {
     if (!canTake || !user?.id) return;
@@ -453,6 +457,21 @@ export default function Assessment() {
   useEffect(() => {
     fetchMyAssessment();
   }, [fetchMyAssessment]);
+
+  const fetchAssessmentPeriodicityConfig = useCallback(async () => {
+    if (!user?.tenantId) return;
+    const { data } = await supabase
+      .from('periodicity_config')
+      .select('reference_start_date, interval_kind, custom_interval_days, custom_interval_months')
+      .eq('tenant_id', user.tenantId)
+      .eq('entity_type', 'assessment')
+      .maybeSingle();
+    setAssessmentPeriodicityConfig(data as PeriodicityConfigForCheck | null);
+  }, [user?.tenantId]);
+
+  useEffect(() => {
+    fetchAssessmentPeriodicityConfig();
+  }, [fetchAssessmentPeriodicityConfig]);
 
   useEffect(() => {
     if (!myAssessment || myAssessment.status !== 'in_progress' || !myAssessment.answers || typeof myAssessment.answers !== 'object') return;
@@ -692,9 +711,10 @@ export default function Assessment() {
             <Button
               className="w-full gradient-hero py-6 text-lg"
               onClick={handleStartOrContinue}
-              disabled={isSaving}
+              disabled={isSaving || !isWithinAssessmentPeriod}
+              title={!isWithinAssessmentPeriod ? 'Refazer teste disponível apenas dentro do período configurado em Configurações.' : undefined}
             >
-              {canContinue ? 'Continuar' : 'Iniciar Teste'}
+              {canContinue ? 'Continuar' : !isWithinAssessmentPeriod ? 'Teste indisponível no momento' : 'Iniciar Teste'}
               <ChevronRight className="w-5 h-5 ml-2" />
             </Button>
 
@@ -781,7 +801,8 @@ export default function Assessment() {
                 });
                 fetchMyAssessment();
               }}
-              disabled={isSaving}
+              disabled={isSaving || !isWithinAssessmentPeriod}
+              title={!isWithinAssessmentPeriod ? 'Refazer teste disponível apenas dentro do período configurado em Configurações.' : undefined}
             >
               Refazer Teste
             </Button>

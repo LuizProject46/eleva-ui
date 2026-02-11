@@ -15,6 +15,9 @@ verify_jwt = false
 [functions.create-notification]
 verify_jwt = false
 
+[functions.check-periodicity-deadlines]
+verify_jwt = false
+
 # Auth email templates (content_path relative to project root).
 # When using the Send Email webhook, the send-email Edge Function loads these HTML files and injects whitelabel placeholders.
 [auth.email.template.invite]
