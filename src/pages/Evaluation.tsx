@@ -1159,10 +1159,10 @@ export default function Evaluation() {
       if (existing?.length) {
         const nextDate = nextPeriodStart
           ? new Date(nextPeriodStart + 'T12:00:00Z').toLocaleDateString('pt-BR', {
-              day: '2-digit',
-              month: '2-digit',
-              year: 'numeric',
-            })
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+          })
           : '—';
         toast.error(
           `Você já enviou esta avaliação ou feedback para este colaborador neste período. Próximo disponível em ${nextDate}.`
@@ -1222,37 +1222,39 @@ export default function Evaluation() {
         }
       }
 
-      const title = isDirectFeedback ? 'Você recebeu um feedback' : 'Você recebeu uma avaliação';
-      const body = isDirectFeedback
-        ? `${user.name} enviou um feedback para você.`
-        : `${user.name} realizou uma avaliação sobre você.`;
+      if (user.id !== evaluatedId) {
+        const title = isDirectFeedback ? 'Você recebeu um feedback' : 'Você recebeu uma avaliação';
+        const body = isDirectFeedback
+          ? `${user.name} enviou um feedback para você.`
+          : `${user.name} realizou uma avaliação sobre você.`;
 
-      const { error: notificationError } = await supabase.functions.invoke('create-notification', {
-        body: {
-          tenant_id: user.tenantId,
-          user_id: evaluatedId,
-          type: isDirectFeedback ? 'feedback_received' : 'evaluation_received',
-          title,
-          body,
-          related_id: evaluationId,
-        },
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
+        const { error: notificationError } = await supabase.functions.invoke('create-notification', {
+          body: {
+            tenant_id: user.tenantId,
+            user_id: evaluatedId,
+            type: isDirectFeedback ? 'feedback_received' : 'evaluation_received',
+            title,
+            body,
+            related_id: evaluationId,
+          },
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
 
 
-      if (notificationError) {
-        console.error('Error creating notification:', notificationError);
+        if (notificationError) {
+          console.error('Error creating notification:', notificationError);
+        }
+
+        const { error: emailErr } = await supabase.functions.invoke('send-notification-email', {
+          body: {
+            evaluatedUserId: evaluatedId,
+            evaluatorName: user.name,
+            type: isDirectFeedback ? 'feedback' : 'evaluation',
+          },
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (emailErr) console.warn('Email notification failed:', emailErr);
       }
-
-      const { error: emailErr } = await supabase.functions.invoke('send-notification-email', {
-        body: {
-          evaluatedUserId: evaluatedId,
-          evaluatorName: user.name,
-          type: isDirectFeedback ? 'feedback' : 'evaluation',
-        },
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      if (emailErr) console.warn('Email notification failed:', emailErr);
 
       toast.success(isDirectFeedback ? 'Feedback enviado!' : 'Avaliação enviada!');
 

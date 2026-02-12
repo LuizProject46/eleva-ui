@@ -8,7 +8,7 @@ export interface PeriodReminderParams {
   leadDays: number;
 }
 
-function formatDateBr(dateStr: string): string {
+export function formatDateBr(dateStr: string): string {
   const [y, m, d] = dateStr.split('-');
   if (!d || !m || !y) return dateStr;
   return `${d}/${m}/${y}`;

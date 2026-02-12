@@ -70,7 +70,7 @@ export function PeriodicityConfig({ tenantId }: PeriodicityConfigProps) {
   const [evaluationState, setEvaluationState] = useState<EntityFormState>(defaultEntityState);
   const [assessmentState, setAssessmentState] = useState<EntityFormState>(defaultEntityState);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
+  const [savingEntity, setSavingEntity] = useState<EntityType | null>(null);
 
   const loadConfig = useCallback(async () => {
     if (!tenantId) return;
@@ -171,7 +171,7 @@ export function PeriodicityConfig({ tenantId }: PeriodicityConfigProps) {
     const label = entityType === 'evaluation' ? 'Avaliações' : 'Testes (DISC)';
     if (!validate(state, label)) return;
 
-    setIsSaving(true);
+    setSavingEntity(entityType);
     const payload = buildPayload(state, entityType);
     const { error } = await supabase.from('periodicity_config').upsert(payload, {
       onConflict: 'tenant_id,entity_type',
@@ -179,11 +179,11 @@ export function PeriodicityConfig({ tenantId }: PeriodicityConfigProps) {
 
     if (error) {
       toast.error(error.message ?? 'Erro ao salvar');
-      setIsSaving(false);
+      setSavingEntity(null);
       return;
     }
     toast.success(`Configuração de ${label} salva`);
-    setIsSaving(false);
+    setSavingEntity(null);
   };
 
   const renderEntityBlock = (
@@ -265,11 +265,11 @@ export function PeriodicityConfig({ tenantId }: PeriodicityConfigProps) {
       <div className="flex justify-end">
         <Button
           onClick={() => handleSave(entityType)}
-          disabled={isSaving}
+          disabled={savingEntity !== null}
           variant="outline"
         >
           <Save className="w-4 h-4 mr-2" />
-          {isSaving ? 'Salvando...' : `Salvar ${title}`}
+          {savingEntity === entityType ? 'Salvando...' : `Salvar ${title}`}
         </Button>
       </div>
     </div>

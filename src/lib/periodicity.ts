@@ -33,7 +33,7 @@ function getIntervalDays(config: PeriodicityConfigForCheck): number {
   return INTERVAL_DAYS[config.interval_kind] ?? 180;
 }
 
-function addDays(date: Date, days: number): Date {
+export function addDays(date: Date, days: number): Date {
   const out = new Date(date);
   out.setDate(out.getDate() + days);
   return out;

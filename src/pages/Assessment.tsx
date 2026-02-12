@@ -431,6 +431,7 @@ export default function Assessment() {
   const alreadyCompletedInCurrentPeriod = useMemo(() => {
     if (!currentPeriod || !myAssessment?.completed_at || myAssessment?.status !== 'completed') return false;
     const completedDate = myAssessment.completed_at.slice(0, 10);
+
     return completedDate >= currentPeriod.periodStart && completedDate <= currentPeriod.periodEnd;
   }, [currentPeriod, myAssessment?.completed_at, myAssessment?.status]);
 

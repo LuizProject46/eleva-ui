@@ -2,7 +2,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { Resend } from 'npm:resend@4.0.0';
 import { corsHeaders } from '../_shared/cors.ts';
 import { parseTenantToBranding } from '../_shared/branding.ts';
-import { renderPeriodReminderEmail } from '../_shared/period-reminder-email.ts';
+import { formatDateBr, renderPeriodReminderEmail } from '../_shared/period-reminder-email.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
 const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
     for (const leadDays of leadDaysArr) {
       const reminderDate = addDays(next.periodStart, -leadDays);
       const reminderDateStr = toDateOnly(reminderDate);
-          if (todayStr < reminderDateStr || todayStr > periodStartStr) continue;
+      if (todayStr < reminderDateStr || todayStr > periodStartStr) continue;
 
       const { data: existing } = await supabase
         .from('periodicity_reminder_sent')
@@ -152,7 +152,7 @@ Deno.serve(async (req) => {
         config.entity_type === 'evaluation'
           ? `Período de avaliações 360° se aproxima`
           : `Período do teste DISC se aproxima`;
-      const body = `${entityLabel}: período de ${periodStartStr} a ${periodEndStr}. Notificação com ${leadDays} dias de antecedência.`;
+      const body = `${entityLabel}: período de ${formatDateBr(periodStartStr)} a ${formatDateBr(periodEndStr)}. Notificação com ${leadDays} dias de antecedência.`;
 
       for (const profile of recipients) {
         const { error: notifErr } = await supabase.from('notifications').insert({
