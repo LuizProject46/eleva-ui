@@ -428,6 +428,12 @@ export default function Assessment() {
   const { isWithinPeriod: isWithinAssessmentPeriod, periodStatus, currentPeriod, nextPeriodStart } = usePeriodicityWindow('assessment');
   const canTake = user?.role && canTakeAssessment(user.role);
 
+  const alreadyCompletedInCurrentPeriod = useMemo(() => {
+    if (!currentPeriod || !myAssessment?.completed_at || myAssessment?.status !== 'completed') return false;
+    const completedDate = myAssessment.completed_at.slice(0, 10);
+    return completedDate >= currentPeriod.periodStart && completedDate <= currentPeriod.periodEnd;
+  }, [currentPeriod, myAssessment?.completed_at, myAssessment?.status]);
+
   const fetchMyAssessment = useCallback(async () => {
     if (!canTake || !user?.id) return;
     setIsLoadingMyAssessment(true);
@@ -531,10 +537,19 @@ export default function Assessment() {
         completed_at: updates.completed_at ?? null,
         updated_at: new Date().toISOString(),
       };
-      await supabase.from('behavioral_assessments').upsert(payload, {
+      const { error } = await supabase.from('behavioral_assessments').upsert(payload, {
         onConflict: 'user_id',
       });
       setIsSaving(false);
+      if (error) {
+        const msg = error.message ?? '';
+        if (msg.includes('já realizado neste período') || msg.includes('Próximo disponível')) {
+          toast.error(msg);
+        } else {
+          toast.error(msg || 'Erro ao salvar o teste');
+        }
+        return;
+      }
       setMyAssessment(prev => (prev ? { ...prev, ...updates } : null));
     },
     [user?.id, user?.tenantId]
@@ -552,17 +567,32 @@ export default function Assessment() {
         answers: answers as Record<string, string>,
       });
     } else {
-      const finalAnswers = { ...answers, [discQuestions[currentQuestion].id]: answers[discQuestions[currentQuestion].id] } as Record<string, 'D' | 'I' | 'S' | 'C'>;
-      const counts = { D: 0, I: 0, S: 0, C: 0 };
-      Object.values(finalAnswers).forEach(v => { counts[v]++; });
-      const resultKey = (Object.keys(counts) as Array<'D' | 'I' | 'S' | 'C'>).reduce((a, b) => (counts[a] > counts[b] ? a : b));
-      setShowResult(true);
-      await upsertAssessment({
-        status: 'completed',
-        answers: finalAnswers as Record<string, string>,
-        result: resultKey,
-        completed_at: new Date().toISOString(),
-      });
+      try {
+        setIsLoadingMyAssessment(true);
+
+        const finalAnswers = { ...answers, [discQuestions[currentQuestion].id]: answers[discQuestions[currentQuestion].id] } as Record<string, 'D' | 'I' | 'S' | 'C'>;
+        const counts = { D: 0, I: 0, S: 0, C: 0 };
+
+        Object.values(finalAnswers).forEach(v => { counts[v]++; });
+
+        const resultKey = (Object.keys(counts) as Array<'D' | 'I' | 'S' | 'C'>).reduce((a, b) => (counts[a] > counts[b] ? a : b));
+
+        setShowResult(true);
+
+        await upsertAssessment({
+          status: 'completed',
+          answers: finalAnswers as Record<string, string>,
+          result: resultKey,
+          completed_at: new Date().toISOString(),
+        });
+
+
+        await fetchMyAssessment();
+      } catch (error) {
+        console.error('Error fetching my assessment', error);
+      } finally {
+        setIsLoadingMyAssessment(false);
+      }
     }
   };
 
@@ -626,100 +656,113 @@ export default function Assessment() {
 
   let mainContent: React.ReactNode;
 
-  if (canTake && isIntroShown) {
-    if (isLoadingMyAssessment) {
-      mainContent = (
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="animate-spin h-10 w-10 rounded-full border-2 border-primary border-t-transparent" />
-        </div>
-      );
-    } else {
-      mainContent = (
-        <div className="max-w-2xl mx-auto animate-fade-in">
-          <div className="text-center mb-8">
-            <div className="w-20 h-20 rounded-2xl gradient-hero flex items-center justify-center mx-auto mb-6">
-              <Brain className="w-10 h-10 text-white" />
-            </div>
-            <h1 className="text-3xl font-display font-bold text-foreground">
-              Teste Comportamental
-            </h1>
-            <p className="text-muted-foreground mt-2">
-              Descubra seu perfil comportamental e entenda seus pontos fortes
-            </p>
-            {myAssessment && (
-              <p className="text-sm text-muted-foreground mt-2">
-                Seu status:{' '}
-                {myAssessment.status === 'completed' && myAssessment.completed_at
-                  ? `Concluído em ${new Date(myAssessment.completed_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}`
-                  : myAssessment.status === 'in_progress'
-                    ? 'Em progresso'
-                    : 'Não iniciado'}
-              </p>
-            )}
+  if (isLoadingMyAssessment) {
+    mainContent = (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin h-10 w-10 rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  } else if (canTake && isIntroShown) {
+    mainContent = (
+      <div className="max-w-2xl mx-auto animate-fade-in">
+        <div className="text-center mb-8">
+          <div className="w-20 h-20 rounded-2xl gradient-hero flex items-center justify-center mx-auto mb-6">
+            <Brain className="w-10 h-10 text-white" />
           </div>
+          <h1 className="text-3xl font-display font-bold text-foreground">
+            Teste Comportamental
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            Descubra seu perfil comportamental e entenda seus pontos fortes
+          </p>
+          {myAssessment && (
+            <p className="text-sm text-muted-foreground mt-2">
+              Seu status:{' '}
+              {myAssessment.status === 'completed' && myAssessment.completed_at
+                ? `Concluído em ${new Date(myAssessment.completed_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}`
+                : myAssessment.status === 'in_progress'
+                  ? 'Em progresso'
+                  : 'Não iniciado'}
+            </p>
+          )}
+        </div>
 
-          <div className="card-elevated p-8 text-center">
-            <div className="grid grid-cols-2 gap-4 mb-8">
-              {Object.entries(discProfiles).map(([key, profile]) => {
-                const Icon = profile.icon;
-                return (
-                  <div key={key} className="p-4 rounded-xl bg-muted/30">
-                    <div className={`w-10 h-10 rounded-lg bg-gradient-to-r ${profile.color} flex items-center justify-center mx-auto mb-2`}>
-                      <Icon className="w-5 h-5 text-white" />
-                    </div>
-                    <p className="font-semibold text-foreground">{profile.name}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{key}</p>
+        <div className="card-elevated p-8 text-center">
+          <div className="grid grid-cols-2 gap-4 mb-8">
+            {Object.entries(discProfiles).map(([key, profile]) => {
+              const Icon = profile.icon;
+              return (
+                <div key={key} className="p-4 rounded-xl bg-muted/30">
+                  <div className={`w-10 h-10 rounded-lg bg-gradient-to-r ${profile.color} flex items-center justify-center mx-auto mb-2`}>
+                    <Icon className="w-5 h-5 text-white" />
                   </div>
-                );
-              })}
-            </div>
-
-            <div className="space-y-4 text-left mb-8">
-              <h3 className="font-semibold text-foreground">Como funciona:</h3>
-              <ul className="space-y-2 text-muted-foreground">
-                <li className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-medium">1</div>
-                  Responda {discQuestions.length} perguntas sobre seu comportamento
-                </li>
-                <li className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-medium">2</div>
-                  Escolha a opção que mais se parece com você
-                </li>
-                <li className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-medium">3</div>
-                  Receba seu perfil DISC detalhado
-                </li>
-              </ul>
-            </div>
-
-            <Button
-              className="w-full gradient-hero py-6 text-lg"
-              onClick={handleStartOrContinue}
-              disabled={isSaving || !isWithinAssessmentPeriod}
-              title={!isWithinAssessmentPeriod ? 'Teste disponível apenas dentro do período configurado em Configurações.' : undefined}
-            >
-              {canContinue ? 'Continuar' : !isWithinAssessmentPeriod ? 'Teste indisponível no momento' : 'Iniciar Teste'}
-              <ChevronRight className="w-5 h-5 ml-2" />
-            </Button>
-
-            {!isWithinAssessmentPeriod && periodStatus && (
-              <div className="mt-4">
-                <PeriodUnavailableMessage
-                  entityLabel="Teste DISC"
-                  periodStatus={periodStatus}
-                  currentPeriod={currentPeriod}
-                  nextPeriodStart={nextPeriodStart}
-                />
-              </div>
-            )}
-
-            <p className="text-xs text-muted-foreground mt-4">
-              Tempo estimado: 5 minutos
-            </p>
+                  <p className="font-semibold text-foreground">{profile.name}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{key}</p>
+                </div>
+              );
+            })}
           </div>
+
+          <div className="space-y-4 text-left mb-8">
+            <h3 className="font-semibold text-foreground">Como funciona:</h3>
+            <ul className="space-y-2 text-muted-foreground">
+              <li className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-medium">1</div>
+                Responda {discQuestions.length} perguntas sobre seu comportamento
+              </li>
+              <li className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-medium">2</div>
+                Escolha a opção que mais se parece com você
+              </li>
+              <li className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-medium">3</div>
+                Receba seu perfil DISC detalhado
+              </li>
+            </ul>
+          </div>
+
+          {alreadyCompletedInCurrentPeriod ? (
+            <div className="mt-4">
+              <PeriodUnavailableMessage
+                entityLabel="Teste DISC"
+                periodStatus="within"
+                currentPeriod={currentPeriod}
+                nextPeriodStart={nextPeriodStart}
+                variant="already_completed"
+              />
+            </div>
+          ) : (
+            <>
+              <Button
+                className="w-full gradient-hero py-6 text-lg"
+                onClick={handleStartOrContinue}
+                disabled={isSaving || !isWithinAssessmentPeriod}
+                title={!isWithinAssessmentPeriod ? 'Teste disponível apenas dentro do período configurado em Configurações.' : undefined}
+              >
+                {canContinue ? 'Continuar' : !isWithinAssessmentPeriod ? 'Teste indisponível no momento' : 'Iniciar Teste'}
+                <ChevronRight className="w-5 h-5 ml-2" />
+              </Button>
+
+              {!isWithinAssessmentPeriod && periodStatus && (
+                <div className="mt-4">
+                  <PeriodUnavailableMessage
+                    entityLabel="Teste DISC"
+                    periodStatus={periodStatus}
+                    currentPeriod={currentPeriod}
+                    nextPeriodStart={nextPeriodStart}
+                  />
+                </div>
+              )}
+            </>
+          )}
+
+          <p className="text-xs text-muted-foreground mt-4">
+            Tempo estimado: 5 minutos
+          </p>
         </div>
-      );
-    }
+      </div>
+    );
+
   } else if (showResult && result) {
 
     mainContent = (
@@ -782,6 +825,18 @@ export default function Assessment() {
 
           <div className="flex gap-4 flex-col">
             <div>
+              {alreadyCompletedInCurrentPeriod && nextPeriodStart && (
+                <div className="mt-4">
+                  <PeriodUnavailableMessage
+                    entityLabel="Teste DISC"
+                    periodStatus="within"
+                    currentPeriod={currentPeriod}
+                    nextPeriodStart={nextPeriodStart}
+                    variant="already_completed"
+                  />
+                </div>
+              )}
+
               {!isWithinAssessmentPeriod && periodStatus && (
                 <div className="mt-4">
                   <PeriodUnavailableMessage
@@ -792,7 +847,6 @@ export default function Assessment() {
                   />
                 </div>
               )}
-
             </div>
 
             <div className="flex gap-4">
@@ -811,8 +865,14 @@ export default function Assessment() {
                   });
                   fetchMyAssessment();
                 }}
-                disabled={isSaving || !isWithinAssessmentPeriod}
-                title={!isWithinAssessmentPeriod ? 'Refazer teste disponível apenas dentro do período configurado em Configurações.' : undefined}
+                disabled={isSaving || !isWithinAssessmentPeriod || alreadyCompletedInCurrentPeriod}
+                title={
+                  alreadyCompletedInCurrentPeriod
+                    ? 'Você já realizou o teste neste período.'
+                    : !isWithinAssessmentPeriod
+                      ? 'Refazer teste disponível apenas dentro do período configurado em Configurações.'
+                      : undefined
+                }
               >
                 Refazer Teste
               </Button>

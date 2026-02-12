@@ -1142,6 +1142,35 @@ export default function Evaluation() {
       }
     }
 
+    if (currentPeriod && user?.id) {
+      const periodStart = currentPeriod.periodStart + 'T00:00:00.000Z';
+      const periodEnd = currentPeriod.periodEnd + 'T23:59:59.999Z';
+      const { data: existing } = await supabase
+        .from('evaluations')
+        .select('id')
+        .eq('evaluator_id', user.id)
+        .eq('evaluated_id', evaluatedId)
+        .eq('type', formType)
+        .eq('status', 'submitted')
+        .not('submitted_at', 'is', null)
+        .gte('submitted_at', periodStart)
+        .lte('submitted_at', periodEnd)
+        .limit(1);
+      if (existing?.length) {
+        const nextDate = nextPeriodStart
+          ? new Date(nextPeriodStart + 'T12:00:00Z').toLocaleDateString('pt-BR', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric',
+            })
+          : '—';
+        toast.error(
+          `Você já enviou esta avaliação ou feedback para este colaborador neste período. Próximo disponível em ${nextDate}.`
+        );
+        return;
+      }
+    }
+
     setSubmitting(true);
     try {
       const { data: { session }, error: sessionError } = await supabase.auth.refreshSession();
@@ -1246,7 +1275,18 @@ export default function Evaluation() {
       }
     } catch (err) {
       console.error(err);
-      toast.error('Erro ao enviar. Tente novamente.');
+      const msg = err instanceof Error ? err.message : String(err);
+      const isDuplicateInPeriod =
+        msg.includes('já enviou') && msg.includes('neste período');
+      if (isDuplicateInPeriod) {
+        toast.error(
+          msg.includes('Próximo disponível')
+            ? msg
+            : `Você já enviou esta avaliação ou feedback para este colaborador neste período. Próximo disponível em ${nextPeriodStart ? new Date(nextPeriodStart + 'T12:00:00Z').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'}.`
+        );
+      } else {
+        toast.error('Erro ao enviar. Tente novamente.');
+      }
     }
     setSubmitting(false);
   };

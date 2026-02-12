@@ -139,7 +139,7 @@ BEGIN
   WHERE p.tenant_id = my_tenant_id
   AND (
     my_role = 'hr'
-    OR (my_role = 'manager' AND (p.manager_id = auth.uid() OR p.department IS NOT DISTINCT FROM my_department))
+    OR (my_role = 'manager' AND p.manager_id = auth.uid())
     OR (my_role = 'employee' AND p.id = auth.uid())
   );
 END;

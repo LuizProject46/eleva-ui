@@ -13,11 +13,15 @@ function formatDateBr(isoDate: string): string {
   });
 }
 
+export type PeriodUnavailableVariant = 'outside_period' | 'already_completed';
+
 export interface PeriodUnavailableMessageProps {
   entityLabel: string;
   periodStatus: PeriodStatus;
   currentPeriod: { periodStart: string; periodEnd: string } | null;
   nextPeriodStart: string | null;
+  /** When 'already_completed', show message that the action was already done in this period; nextPeriodStart is used for next available date. */
+  variant?: PeriodUnavailableVariant;
   className?: string;
 }
 
@@ -26,8 +30,29 @@ export function PeriodUnavailableMessage({
   periodStatus,
   currentPeriod,
   nextPeriodStart,
+  variant = 'outside_period',
   className,
 }: PeriodUnavailableMessageProps) {
+  if (variant === 'already_completed' && nextPeriodStart) {
+    return (
+      <Alert
+        role="status"
+        className={cn(
+          'rounded-xl border-primary/20 bg-primary/5 text-foreground [&>svg]:text-primary',
+          className
+        )}
+      >
+        <CalendarClock className="h-5 w-5" />
+        <AlertTitle className="mb-1 font-medium text-foreground">
+          Já realizado neste período
+        </AlertTitle>
+        <AlertDescription className="text-sm text-muted-foreground leading-relaxed">
+          O próximo estará disponível em {formatDateBr(nextPeriodStart)}.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
   if (periodStatus === 'within') return null;
 
   let title: string;

@@ -105,7 +105,8 @@ export function getPeriodStatus(
   const endStr = toDateOnly(periodEnd);
 
   if (dateStr >= startStr && dateStr <= endStr) {
-    return { status: 'within', currentPeriod: { periodStart: startStr, periodEnd: endStr }, nextPeriodStart: null };
+    const nextStart = toDateOnly(periodEnd);
+    return { status: 'within', currentPeriod: { periodStart: startStr, periodEnd: endStr }, nextPeriodStart: nextStart };
   }
   if (dateStr < startStr) {
     return { status: 'before', currentPeriod: null, nextPeriodStart: startStr };
