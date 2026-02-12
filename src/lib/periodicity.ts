@@ -3,6 +3,8 @@
  * Mirrors the cycle logic used in check-periodicity-deadlines Edge Function.
  */
 
+import { differenceInCalendarDays } from 'date-fns';
+
 export type IntervalKind = 'bimonthly' | 'quarterly' | 'semiannual' | 'annual' | 'custom';
 
 export interface PeriodicityConfigForCheck {
@@ -39,8 +41,60 @@ export function addDays(date: Date, days: number): Date {
   return out;
 }
 
-function toDateOnly(d: Date): string {
-  return d.toISOString().slice(0, 10);
+function parseLocalDateOnly(dateOnly: string): Date | null {
+  const parts = dateOnly.split('-');
+  if (parts.length !== 3) return null;
+  const year = parseInt(parts[0] ?? '', 10);
+  const month = parseInt(parts[1] ?? '', 10);
+  const day = parseInt(parts[2] ?? '', 10);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return null;
+
+  const d = new Date(year, month - 1, day);
+  if (isNaN(d.getTime())) return null;
+  return d;
+}
+
+function formatLocalDateOnly(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+export interface PeriodWindow {
+  /** Date-only (local) for display and lightweight messaging. */
+  periodStart: string;
+  /** Date-only (local). Semantics are exclusive: [periodStart, periodEnd). */
+  periodEnd: string;
+  /** Exact instant (local midnight) that starts the period. */
+  periodStartAt: Date;
+  /** Exact instant (local midnight) that ends the period (exclusive). */
+  periodEndAt: Date;
+}
+
+function buildPeriodWindow(periodStartAt: Date, periodEndAt: Date): PeriodWindow {
+  return {
+    periodStart: formatLocalDateOnly(periodStartAt),
+    periodEnd: formatLocalDateOnly(periodEndAt),
+    periodStartAt,
+    periodEndAt,
+  };
+}
+
+function computeCurrentWindow(
+  config: PeriodicityConfigForCheck,
+  now: Date
+): { refAt: Date; window: PeriodWindow } | null {
+  const refAt = parseLocalDateOnly(config.reference_start_date);
+  if (!refAt) return null;
+
+  const intervalDays = getIntervalDays(config);
+  const diffDays = differenceInCalendarDays(now, refAt);
+  const periodsSinceRef = Math.floor(diffDays / intervalDays);
+
+  const periodStartAt = addDays(refAt, periodsSinceRef * intervalDays);
+  const periodEndAt = addDays(periodStartAt, intervalDays);
+  return { refAt, window: buildPeriodWindow(periodStartAt, periodEndAt) };
 }
 
 /**
@@ -49,34 +103,23 @@ function toDateOnly(d: Date): string {
 export function getCurrentPeriod(
   config: PeriodicityConfigForCheck,
   date: Date = new Date()
-): { periodStart: string; periodEnd: string } | null {
-  const ref = new Date(config.reference_start_date + 'T12:00:00Z');
-  if (isNaN(ref.getTime())) return null;
+): PeriodWindow | null {
+  const computed = computeCurrentWindow(config, date);
+  if (!computed) return null;
 
-  const intervalDays = getIntervalDays(config);
-  let periodStart = new Date(ref);
-  let periodEnd = addDays(periodStart, intervalDays);
-  const dateStr = toDateOnly(date);
-
-  while (toDateOnly(periodEnd) < dateStr) {
-    periodStart = periodEnd;
-    periodEnd = addDays(periodStart, intervalDays);
-  }
-
-  const startStr = toDateOnly(periodStart);
-  const endStr = toDateOnly(periodEnd);
-  if (dateStr >= startStr && dateStr <= endStr) {
-    return { periodStart: startStr, periodEnd: endStr };
-  }
-  return null;
+  const { refAt, window } = computed;
+  if (date.getTime() < refAt.getTime()) return null;
+  if (date.getTime() < window.periodStartAt.getTime() || date.getTime() >= window.periodEndAt.getTime()) return null;
+  return window;
 }
 
 export type PeriodStatus = 'before' | 'within' | 'after';
 
 export interface PeriodStatusResult {
   status: PeriodStatus;
-  currentPeriod: { periodStart: string; periodEnd: string } | null;
+  currentPeriod: PeriodWindow | null;
   nextPeriodStart: string | null;
+  nextPeriodStartAt: Date | null;
 }
 
 /**
@@ -86,33 +129,31 @@ export function getPeriodStatus(
   config: PeriodicityConfigForCheck,
   date: Date = new Date()
 ): PeriodStatusResult {
-  const ref = new Date(config.reference_start_date + 'T12:00:00Z');
-  if (isNaN(ref.getTime())) {
-    return { status: 'within', currentPeriod: null, nextPeriodStart: null };
+  const computed = computeCurrentWindow(config, date);
+  if (!computed) {
+    return { status: 'within', currentPeriod: null, nextPeriodStart: null, nextPeriodStartAt: null };
   }
 
-  const intervalDays = getIntervalDays(config);
-  let periodStart = new Date(ref);
-  let periodEnd = addDays(periodStart, intervalDays);
-  const dateStr = toDateOnly(date);
+  const { refAt, window } = computed;
 
-  while (toDateOnly(periodEnd) < dateStr) {
-    periodStart = periodEnd;
-    periodEnd = addDays(periodStart, intervalDays);
+  if (date.getTime() < refAt.getTime()) {
+    const nextStart = formatLocalDateOnly(refAt);
+    return { status: 'before', currentPeriod: null, nextPeriodStart: nextStart, nextPeriodStartAt: refAt };
   }
 
-  const startStr = toDateOnly(periodStart);
-  const endStr = toDateOnly(periodEnd);
+  if (date.getTime() >= window.periodStartAt.getTime() && date.getTime() < window.periodEndAt.getTime()) {
+    const nextStart = window.periodEnd;
+    return {
+      status: 'within',
+      currentPeriod: window,
+      nextPeriodStart: nextStart,
+      nextPeriodStartAt: window.periodEndAt,
+    };
+  }
 
-  if (dateStr >= startStr && dateStr <= endStr) {
-    const nextStart = toDateOnly(periodEnd);
-    return { status: 'within', currentPeriod: { periodStart: startStr, periodEnd: endStr }, nextPeriodStart: nextStart };
-  }
-  if (dateStr < startStr) {
-    return { status: 'before', currentPeriod: null, nextPeriodStart: startStr };
-  }
-  const nextStart = toDateOnly(periodEnd);
-  return { status: 'after', currentPeriod: null, nextPeriodStart: nextStart };
+  // This should be unreachable with the current compute logic, but keep deterministic output.
+  const nextStart = window.periodEnd;
+  return { status: 'after', currentPeriod: null, nextPeriodStart: nextStart, nextPeriodStartAt: window.periodEndAt };
 }
 
 /**
@@ -123,5 +164,7 @@ export function isInsidePeriodicityWindow(
   date: Date = new Date()
 ): boolean {
   if (!config) return true;
-  return getPeriodStatus(config, date).status === 'within';
+  const { status, currentPeriod } = getPeriodStatus(config, date);
+  if (status !== 'within' || !currentPeriod) return false;
+  return date.getTime() >= currentPeriod.periodStartAt.getTime() && date.getTime() < currentPeriod.periodEndAt.getTime();
 }

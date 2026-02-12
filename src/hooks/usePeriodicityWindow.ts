@@ -42,6 +42,7 @@ export interface UsePeriodicityWindowResult {
   periodStatus: PeriodStatus | null;
   currentPeriod: PeriodStatusResult['currentPeriod'];
   nextPeriodStart: string | null;
+  nextPeriodStartAt: Date | null;
   message: string | null;
   isLoading: boolean;
 }
@@ -88,6 +89,7 @@ export function usePeriodicityWindow(entityType: PeriodicityEntityType): UsePeri
     periodStatus: result?.status ?? null,
     currentPeriod: result?.currentPeriod ?? null,
     nextPeriodStart: result?.nextPeriodStart ?? null,
+    nextPeriodStartAt: result?.nextPeriodStartAt ?? null,
     message,
     isLoading,
   };

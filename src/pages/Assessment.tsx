@@ -430,9 +430,13 @@ export default function Assessment() {
 
   const alreadyCompletedInCurrentPeriod = useMemo(() => {
     if (!currentPeriod || !myAssessment?.completed_at || myAssessment?.status !== 'completed') return false;
-    const completedDate = myAssessment.completed_at.slice(0, 10);
+    const completedAt = new Date(myAssessment.completed_at);
+    if (isNaN(completedAt.getTime())) return false;
 
-    return completedDate >= currentPeriod.periodStart && completedDate <= currentPeriod.periodEnd;
+    return (
+      completedAt.getTime() >= currentPeriod.periodStartAt.getTime()
+      && completedAt.getTime() < currentPeriod.periodEndAt.getTime()
+    );
   }, [currentPeriod, myAssessment?.completed_at, myAssessment?.status]);
 
   const fetchMyAssessment = useCallback(async () => {

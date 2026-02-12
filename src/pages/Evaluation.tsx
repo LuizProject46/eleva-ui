@@ -1143,8 +1143,8 @@ export default function Evaluation() {
     }
 
     if (currentPeriod && user?.id) {
-      const periodStart = currentPeriod.periodStart + 'T00:00:00.000Z';
-      const periodEnd = currentPeriod.periodEnd + 'T23:59:59.999Z';
+      const periodStart = currentPeriod.periodStartAt.toISOString();
+      const periodEnd = currentPeriod.periodEndAt.toISOString();
       const { data: existing } = await supabase
         .from('evaluations')
         .select('id')
@@ -1154,7 +1154,7 @@ export default function Evaluation() {
         .eq('status', 'submitted')
         .not('submitted_at', 'is', null)
         .gte('submitted_at', periodStart)
-        .lte('submitted_at', periodEnd)
+        .lt('submitted_at', periodEnd)
         .limit(1);
       if (existing?.length) {
         const nextDate = nextPeriodStart
