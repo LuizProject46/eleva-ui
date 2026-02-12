@@ -1,5 +1,6 @@
 -- Migration 025: Enforce once-per-period for behavioral assessments and evaluations.
 -- Uses periodicity_config to compute the period; blocks duplicate completion/submission in the same period.
+-- Periods are semi-open [start, end): start inclusive, end exclusive (no overlaps; matches frontend periodicity).
 
 -- Helper: interval days from config fields (mirrors src/lib/periodicity.ts and Edge Function).
 CREATE OR REPLACE FUNCTION public.get_interval_days(
@@ -30,8 +31,8 @@ BEGIN
 END;
 $$;
 
--- Returns the period (start and end date, inclusive) that contains p_date for the tenant's entity_type config.
--- If no config, returns NULL (caller treats as "no restriction").
+-- Returns the period (semi-open [period_start, period_end)) that contains p_date for the tenant's entity_type config.
+-- period_end is exclusive. If no config, returns NULL (caller treats as "no restriction").
 CREATE OR REPLACE FUNCTION public.get_period_containing_date(
   p_tenant_id UUID,
   p_entity_type TEXT,
@@ -62,14 +63,14 @@ BEGIN
   v_ref := v_c.reference_start_date;
   v_interval_days := get_interval_days(v_c.interval_kind, v_c.custom_interval_days, v_c.custom_interval_months);
   v_period_start := v_ref;
-  v_period_end := v_period_start + (v_interval_days - 1);
+  v_period_end := v_period_start + v_interval_days;
 
-  WHILE v_period_end < p_date LOOP
-    v_period_start := v_period_end + 1;
-    v_period_end := v_period_start + (v_interval_days - 1);
+  WHILE v_period_end <= p_date LOOP
+    v_period_start := v_period_end;
+    v_period_end := v_period_start + v_interval_days;
   END LOOP;
 
-  IF p_date >= v_period_start AND p_date <= v_period_end THEN
+  IF p_date >= v_period_start AND p_date < v_period_end THEN
     period_start := v_period_start;
     period_end := v_period_end;
     RETURN NEXT;
@@ -80,6 +81,7 @@ END;
 $$;
 
 -- Returns the start date of the next period (for error messages). Same config as get_period_containing_date.
+-- With semi-open periods, next period start is the current period's exclusive end (period_end).
 CREATE OR REPLACE FUNCTION public.get_next_period_start(
   p_tenant_id UUID,
   p_entity_type TEXT,
@@ -108,14 +110,14 @@ BEGIN
 
   v_interval_days := get_interval_days(v_c.interval_kind, v_c.custom_interval_days, v_c.custom_interval_months);
   v_period_start := v_c.reference_start_date;
-  v_period_end := v_period_start + (v_interval_days - 1);
+  v_period_end := v_period_start + v_interval_days;
 
-  WHILE v_period_end < p_date LOOP
-    v_period_start := v_period_end + 1;
-    v_period_end := v_period_start + (v_interval_days - 1);
+  WHILE v_period_end <= p_date LOOP
+    v_period_start := v_period_end;
+    v_period_end := v_period_start + v_interval_days;
   END LOOP;
 
-  RETURN v_period_end + 1;
+  RETURN v_period_end;
 END;
 $$;
 
@@ -148,7 +150,7 @@ BEGIN
     WHERE ba.user_id = NEW.user_id
       AND ba.completed_at IS NOT NULL
       AND (ba.completed_at AT TIME ZONE 'UTC')::date >= v_period_start
-      AND (ba.completed_at AT TIME ZONE 'UTC')::date <= v_period_end
+      AND (ba.completed_at AT TIME ZONE 'UTC')::date < v_period_end
       AND (TG_OP = 'INSERT' OR ba.id <> NEW.id)
   ) INTO v_exists;
 
@@ -203,7 +205,7 @@ BEGIN
       AND e.status = 'submitted'
       AND e.submitted_at IS NOT NULL
       AND (e.submitted_at AT TIME ZONE 'UTC')::date >= v_period_start
-      AND (e.submitted_at AT TIME ZONE 'UTC')::date <= v_period_end
+      AND (e.submitted_at AT TIME ZONE 'UTC')::date < v_period_end
       AND (TG_OP = 'INSERT' OR e.id <> NEW.id)
   ) INTO v_exists;
 
