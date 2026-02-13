@@ -20,6 +20,7 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBrand } from '@/contexts/BrandContext';
 import { useMobileMenu } from '@/contexts/MobileMenuContext';
+import { UserAvatar } from '@/components/UserAvatar';
 import { cn } from '@/lib/utils';
 
 const employeeNavItems = [
@@ -90,7 +91,7 @@ function SidebarContent() {
               src={brand.logoUrl}
               alt={brand.companyName}
               className="h-20 w-auto object-contain rounded-2xl"
-              loading='lazy'  
+              loading='lazy'
             />
           ) : (
             <div className="w-10 h-10 rounded-xl gradient-hero flex items-center justify-center">
@@ -105,11 +106,20 @@ function SidebarContent() {
       {/* User Info */}
       <div className="p-4 mx-3 mt-4 rounded-xl bg-sidebar-accent/50">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-sidebar-primary/20 flex items-center justify-center">
-            <span className="text-sidebar-primary font-semibold">
-              {user?.name.charAt(0)}
-            </span>
-          </div>
+          {user?.avatar ? (
+            <UserAvatar
+              avatarUrl={user?.avatar}
+              avatarThumbUrl={user?.avatarThumbUrl}
+              name={user?.name ?? ''}
+              size="md"
+            />
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-sidebar-primary/20 flex items-center justify-center">
+              <span className="text-sidebar-primary font-semibold">
+                {user?.name.toUpperCase().charAt(0)}
+              </span>
+            </div>
+          )}
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-sidebar-foreground truncate">
               {user?.name}

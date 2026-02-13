@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBrand } from '@/contexts/BrandContext';
@@ -6,11 +6,13 @@ import { useTenant } from '@/contexts/TenantContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Building2, User, Save, CalendarClock } from 'lucide-react';
+import { Building2, User, Save, CalendarClock, Upload, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { isHexColor, normalizeHex } from '@/lib/branding';
 import { ImageUpload } from '@/components/settings/ImageUpload';
 import { PeriodicityConfig } from '@/components/settings/PeriodicityConfig';
+import { UserAvatar } from '@/components/UserAvatar';
+import { uploadAvatar, validateAvatarFile } from '@/services/avatarService';
 import { supabase } from '@/lib/supabase';
 
 function normalizeHexInput(value: string): string {
@@ -44,6 +46,11 @@ export default function Settings() {
   const [profilePosition, setProfilePosition] = useState(user?.position ?? '');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileEmail, setProfileEmail] = useState(user?.email ?? '');
+  const [profileAvatarPreviewUrl, setProfileAvatarPreviewUrl] = useState<string | null>(null);
+  const [profileAvatarPendingFile, setProfileAvatarPendingFile] = useState<File | null>(null);
+  const [profileAvatarRemoveRequested, setProfileAvatarRemoveRequested] = useState(false);
+  const [profileAvatarError, setProfileAvatarError] = useState<string | null>(null);
+  const profileAvatarInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setCompanyName(brand.companyName);
@@ -67,29 +74,93 @@ export default function Settings() {
     }
   };
 
-  const handleSaveProfile = async () => {
-    if (!user?.id || !canEditProfile) return;
-    setIsSavingProfile(true);
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          name: profileName.trim() || user.name,
-          department: profileDepartment.trim() || null,
-          position: profilePosition.trim() || null,
-          email: profileEmail.trim() || user.email,
-        })
-        .eq('tenant_id', user.tenantId)
-        .eq('id', user.id);
+  const hasPendingAvatarChange =
+    profileAvatarPendingFile !== null || profileAvatarRemoveRequested;
 
-      if (error) {
-        toast.error(error.message ?? 'Erro ao salvar perfil');
-        return;
+  const handleProfileAvatarFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setProfileAvatarError(null);
+    const err = validateAvatarFile(file);
+    if (err) {
+      setProfileAvatarError(err);
+      return;
+    }
+    if (profileAvatarPreviewUrl) URL.revokeObjectURL(profileAvatarPreviewUrl);
+    setProfileAvatarPreviewUrl(URL.createObjectURL(file));
+    setProfileAvatarPendingFile(file);
+    setProfileAvatarRemoveRequested(false);
+  };
+
+  const handleProfileAvatarRemove = () => {
+    if (profileAvatarPreviewUrl) {
+      URL.revokeObjectURL(profileAvatarPreviewUrl);
+      setProfileAvatarPreviewUrl(null);
+    }
+    setProfileAvatarPendingFile(null);
+    setProfileAvatarRemoveRequested(true);
+    setProfileAvatarError(null);
+  };
+
+  const handleSaveProfile = async () => {
+    if (!user?.id) return;
+    const hasProfileFieldsToSave = canEditProfile;
+    if (!hasProfileFieldsToSave && !hasPendingAvatarChange) return;
+
+    setIsSavingProfile(true);
+    setProfileAvatarError(null);
+    try {
+      let avatarUrl: string | null | undefined;
+      let avatarThumbUrl: string | null | undefined;
+
+      if (profileAvatarPendingFile && user.tenantId) {
+        const result = await uploadAvatar(user.tenantId, user.id, profileAvatarPendingFile);
+        avatarUrl = result.avatarUrl;
+        avatarThumbUrl = result.avatarThumbUrl;
+      } else if (profileAvatarRemoveRequested) {
+        avatarUrl = null;
+        avatarThumbUrl = null;
       }
+
+      const updates: Record<string, unknown> = {};
+      if (hasProfileFieldsToSave) {
+        updates.name = profileName.trim() || user.name;
+        updates.department = profileDepartment.trim() || null;
+        updates.position = profilePosition.trim() || null;
+        updates.email = profileEmail.trim() || user.email;
+      }
+      if (profileAvatarPendingFile && avatarUrl !== undefined) {
+        updates.avatar_url = avatarUrl;
+        updates.avatar_thumb_url = avatarThumbUrl ?? null;
+      }
+      if (profileAvatarRemoveRequested) {
+        updates.avatar_url = null;
+        updates.avatar_thumb_url = null;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        const { error } = await supabase
+          .from('profiles')
+          .update(updates)
+          .eq('id', user.id);
+
+        if (error) {
+          toast.error(error.message ?? 'Erro ao salvar perfil');
+          return;
+        }
+      }
+
+      if (profileAvatarPreviewUrl) URL.revokeObjectURL(profileAvatarPreviewUrl);
+      setProfileAvatarPreviewUrl(null);
+      setProfileAvatarPendingFile(null);
+      setProfileAvatarRemoveRequested(false);
       await refreshUser();
       toast.success('Perfil atualizado');
-    } catch {
-      toast.error('Erro ao salvar perfil');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Não foi possível enviar a foto.';
+      toast.error(msg);
+      setProfileAvatarError(msg);
     } finally {
       setIsSavingProfile(false);
     }
@@ -161,6 +232,79 @@ export default function Settings() {
               </h2>
             </div>
 
+            <div className="space-y-6 mb-6">
+              <div className="flex items-center gap-4 flex-wrap">
+                <div className="shrink-0">
+                  {profileAvatarPreviewUrl ? (
+                    <img
+                      src={profileAvatarPreviewUrl}
+                      alt="Preview"
+                      className="h-20 w-20 rounded-full object-cover border border-border"
+                    />
+                  ) : profileAvatarRemoveRequested ? (
+                    <UserAvatar
+                      name={user?.name ?? ''}
+                      size="lg"
+                      className="h-20 w-20 border border-border"
+                    />
+                  ) : user?.avatar ? (
+                    <UserAvatar
+                      avatarUrl={user?.avatar}
+                      avatarThumbUrl={user?.avatarThumbUrl}
+                      name={user?.name ?? ''}
+                      size="lg"
+                      useThumb={false}
+                      className="h-20 w-20 border border-border"
+                    />
+                  ) : (
+                    <div className="w-20 h-20 rounded-full bg-sidebar-primary/20 flex items-center justify-center">
+                      <span className="text-sidebar-primary font-semibold">
+                        {user?.name.toUpperCase().charAt(0)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <input
+                    ref={profileAvatarInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={handleProfileAvatarFileChange}
+                    className="hidden"
+                  />
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => profileAvatarInputRef.current?.click()}
+                      disabled={isSavingProfile}
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      Alterar foto
+                    </Button>
+                    {(user?.avatar || profileAvatarPreviewUrl) && !profileAvatarRemoveRequested && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleProfileAvatarRemove}
+                        disabled={isSavingProfile}
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Remover
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Máx. 5MB. JPG, PNG ou WebP.</p>
+                  {profileAvatarError && (
+                    <p className="text-sm text-destructive">{profileAvatarError}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label>Nome completo</Label>
@@ -194,7 +338,7 @@ export default function Settings() {
                 />
               </div>
             </div>
-            {canEditProfile && (
+            {(canEditProfile || hasPendingAvatarChange) && (
               <div className="flex justify-end pt-4 border-t border-border mt-6">
                 <Button
                   onClick={handleSaveProfile}

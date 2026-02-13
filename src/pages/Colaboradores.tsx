@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useAuth, UserRole } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -26,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Users, UserPlus, ArrowUpDown, ArrowUp, ArrowDown, Pencil, Trash2 } from 'lucide-react';
+import { Users, UserPlus, ArrowUpDown, ArrowUp, ArrowDown, Pencil, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Pagination,
@@ -47,6 +47,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { UserAvatar } from '@/components/UserAvatar';
+import { uploadAvatar, validateAvatarFile } from '@/services/avatarService';
 
 const ROLE_LABELS: Record<string, string> = {
   hr: 'RH',
@@ -80,6 +82,8 @@ interface Profile {
   manager_id: string | null;
   manager_name?: string;
   is_active: boolean;
+  avatar_url?: string | null;
+  avatar_thumb_url?: string | null;
 }
 
 interface Manager {
@@ -106,6 +110,9 @@ export default function Colaboradores() {
     manager_id: '',
     role: 'employee'
   });
+  const [formAvatarFile, setFormAvatarFile] = useState<File | null>(null);
+  const [formAvatarPreviewUrl, setFormAvatarPreviewUrl] = useState<string | null>(null);
+  const formAvatarInputRef = useRef<HTMLInputElement>(null);
   const [editingProfile, setEditingProfile] = useState<Profile | null>(null);
   const [editForm, setEditForm] = useState({
     email: '',
@@ -117,6 +124,11 @@ export default function Colaboradores() {
     department: '',
     cost_center: '',
   });
+  const [editFormAvatarFile, setEditFormAvatarFile] = useState<File | null>(null);
+  const [editFormAvatarPreviewUrl, setEditFormAvatarPreviewUrl] = useState<string | null>(null);
+  const [editFormAvatarRemove, setEditFormAvatarRemove] = useState(false);
+  const editFormAvatarInputRef = useRef<HTMLInputElement>(null);
+  const editFormAvatarPreviewUrlRef = useRef<string | null>(null);
   const [filterDepartment, setFilterDepartment] = useState('all');
   const [filterManager, setFilterManager] = useState('all');
   const [filterName, setFilterName] = useState('');
@@ -155,7 +167,7 @@ export default function Colaboradores() {
     let query = supabase
       .from('profiles')
       .select(
-        'id, email, name, role, department, position, cost_center, manager_id, is_active',
+        'id, email, name, role, department, position, cost_center, manager_id, is_active, avatar_url, avatar_thumb_url',
         { count: 'exact' }
       )
       .eq('tenant_id', user?.tenantId)
@@ -396,6 +408,19 @@ export default function Colaboradores() {
         return;
       }
 
+      const newUserId = (data?.user as { id?: string } | undefined)?.id;
+      if (formAvatarFile && user?.tenantId && newUserId) {
+        try {
+          const { avatarUrl, avatarThumbUrl } = await uploadAvatar(user.tenantId, newUserId, formAvatarFile);
+          await supabase
+            .from('profiles')
+            .update({ avatar_url: avatarUrl, avatar_thumb_url: avatarThumbUrl })
+            .eq('id', newUserId);
+        } catch {
+          toast.error('Convite enviado, mas não foi possível enviar a foto.');
+        }
+      }
+
       if (data?.emailPending && data?.message) {
         toast.success(data.message);
       } else {
@@ -403,6 +428,9 @@ export default function Colaboradores() {
       }
       setModalOpen(false);
       setForm({ name: '', email: '', position: '', department: '', cost_center: '', manager_id: '', role: 'employee' });
+      if (formAvatarPreviewUrl) URL.revokeObjectURL(formAvatarPreviewUrl);
+      setFormAvatarPreviewUrl(null);
+      setFormAvatarFile(null);
       fetchProfiles();
       fetchManagers();
     } catch (err) {
@@ -423,6 +451,13 @@ export default function Colaboradores() {
       department: p.department ?? '',
       cost_center: p.cost_center ?? '',
     });
+    setEditFormAvatarFile(null);
+    if (editFormAvatarPreviewUrlRef.current) {
+      URL.revokeObjectURL(editFormAvatarPreviewUrlRef.current);
+      editFormAvatarPreviewUrlRef.current = null;
+    }
+    setEditFormAvatarPreviewUrl(null);
+    setEditFormAvatarRemove(false);
     setEditModalOpen(true);
   };
 
@@ -443,7 +478,7 @@ export default function Colaboradores() {
 
     setSubmitting(true);
     try {
-      const updates: Partial<Profile> & { is_active?: boolean } = {
+      const updates: Partial<Profile> & { is_active?: boolean; avatar_url?: string | null; avatar_thumb_url?: string | null } = {
         manager_id: editForm.manager_id || null,
       };
       if (canChangeRoleAndStatus()) {
@@ -456,12 +491,30 @@ export default function Colaboradores() {
         updates.email = editForm.email;
       }
 
+      if (isHR()) {
+        if (editFormAvatarFile && user?.tenantId) {
+          const { avatarUrl, avatarThumbUrl } = await uploadAvatar(user.tenantId, editingProfile.id, editFormAvatarFile);
+          updates.avatar_url = avatarUrl;
+          updates.avatar_thumb_url = avatarThumbUrl;
+        } else if (editFormAvatarRemove) {
+          updates.avatar_url = null;
+          updates.avatar_thumb_url = null;
+        }
+      }
+
       const { error } = await supabase
         .from('profiles')
         .update(updates)
         .eq('id', editingProfile.id);
 
       if (error) throw error;
+      if (editFormAvatarPreviewUrlRef.current) {
+        URL.revokeObjectURL(editFormAvatarPreviewUrlRef.current);
+        editFormAvatarPreviewUrlRef.current = null;
+      }
+      setEditFormAvatarPreviewUrl(null);
+      setEditFormAvatarFile(null);
+      setEditFormAvatarRemove(false);
       toast.success('Perfil atualizado');
       setEditModalOpen(false);
       setEditingProfile(null);
@@ -669,7 +722,17 @@ export default function Colaboradores() {
                   <TableBody>
                     {profilesWithManagerName.map((p) => (
                       <TableRow key={p.id}>
-                        <TableCell className="font-medium">{p.name}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <UserAvatar
+                              avatarUrl={p.avatar_url}
+                              avatarThumbUrl={p.avatar_thumb_url}
+                              name={p.name}
+                              size="sm"
+                            />
+                            <span className="font-medium">{p.name}</span>
+                          </div>
+                        </TableCell>
                         <TableCell>{p.email}</TableCell>
                         <TableCell>{p.position ?? '—'}</TableCell>
                         <TableCell>{p.department ?? '—'}</TableCell>
@@ -777,11 +840,15 @@ export default function Colaboradores() {
       </div>
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent aria-describedby={undefined}>
-          <DialogHeader>
+        <DialogContent
+          aria-describedby={undefined}
+          className="w-[95vw] max-w-lg max-h-[90vh] flex flex-col p-4 sm:p-6"
+        >
+          <DialogHeader className="shrink-0">
             <DialogTitle>Novo Colaborador</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="overflow-y-auto flex-1 min-h-0 -mx-4 px-4 sm:-mx-6 sm:px-6">
+            <form onSubmit={handleSubmit} className="space-y-4">
             {canCreateUser() && (
               <div className="space-y-2">
                 <Label>Papel</Label>
@@ -882,6 +949,76 @@ export default function Colaboradores() {
               </div>
             )}
 
+            <div className="space-y-2">
+              <Label>Foto (opcional)</Label>
+              <div className="flex items-center gap-4 flex-wrap">
+                <div className="shrink-0">
+                  {formAvatarPreviewUrl ? (
+                    <img
+                      src={formAvatarPreviewUrl}
+                      alt="Preview"
+                      className="h-16 w-16 rounded-full object-cover border border-border"
+                    />
+                  ) : (
+                    <div className="h-16 w-16 rounded-full bg-muted border border-border flex items-center justify-center text-muted-foreground text-xs">
+                      Sem foto
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-col gap-1">
+                  <input
+                    ref={formAvatarInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = '';
+                      if (!file) return;
+                      const err = validateAvatarFile(file);
+                      if (err) {
+                        toast.error(err);
+                        return;
+                      }
+                      if (formAvatarPreviewUrl) URL.revokeObjectURL(formAvatarPreviewUrl);
+                      setFormAvatarPreviewUrl(URL.createObjectURL(file));
+                      setFormAvatarFile(file);
+                    }}
+                    className="hidden"
+                  />
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => formAvatarInputRef.current?.click()}
+                      disabled={submitting}
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      Enviar foto
+                    </Button>
+                    {formAvatarPreviewUrl && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (formAvatarPreviewUrl) URL.revokeObjectURL(formAvatarPreviewUrl);
+                          setFormAvatarPreviewUrl(null);
+                          setFormAvatarFile(null);
+                        }}
+                        disabled={submitting}
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Remover
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Máx. 5MB. JPG, PNG ou WebP.</p>
+                </div>
+              </div>
+            </div>
+
             <div className="flex justify-end gap-2 pt-4">
               <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>
                 Cancelar
@@ -890,7 +1027,8 @@ export default function Colaboradores() {
                 {submitting ? 'Enviando...' : 'Enviar convite'}
               </Button>
             </div>
-          </form>
+            </form>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -916,12 +1054,102 @@ export default function Colaboradores() {
       </AlertDialog>
 
       <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
-        <DialogContent aria-describedby={undefined}>
-          <DialogHeader>
+        <DialogContent
+          aria-describedby={undefined}
+          className="w-[95vw] max-w-lg max-h-[90vh] flex flex-col p-4 sm:p-6"
+        >
+          <DialogHeader className="shrink-0">
             <DialogTitle>Editar colaborador</DialogTitle>
           </DialogHeader>
           {editingProfile && (
+            <div className="overflow-y-auto flex-1 min-h-0 -mx-4 px-4 sm:-mx-6 sm:px-6">
             <form onSubmit={handleEditSubmit} className="space-y-4">
+              {isHR() && (
+                <div className="space-y-2">
+                  <Label>Foto</Label>
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <div className="shrink-0">
+                      {editFormAvatarPreviewUrl ? (
+                        <img
+                          src={editFormAvatarPreviewUrl}
+                          alt="Preview"
+                          className="h-16 w-16 rounded-full object-cover border border-border"
+                        />
+                      ) : editFormAvatarRemove ? (
+                        <UserAvatar name={editingProfile.name} size="lg" className="h-16 w-16 border border-border" />
+                      ) : (
+                        <UserAvatar
+                          avatarUrl={editingProfile.avatar_url}
+                          avatarThumbUrl={editingProfile.avatar_thumb_url}
+                          name={editingProfile.name}
+                          size="lg"
+                          useThumb={false}
+                          className="h-16 w-16 border border-border"
+                        />
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <input
+                        ref={editFormAvatarInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          e.target.value = '';
+                          if (!file) return;
+                          const err = validateAvatarFile(file);
+                          if (err) {
+                            toast.error(err);
+                            return;
+                          }
+                          if (editFormAvatarPreviewUrlRef.current) URL.revokeObjectURL(editFormAvatarPreviewUrlRef.current);
+                          const url = URL.createObjectURL(file);
+                          editFormAvatarPreviewUrlRef.current = url;
+                          setEditFormAvatarPreviewUrl(url);
+                          setEditFormAvatarFile(file);
+                          setEditFormAvatarRemove(false);
+                        }}
+                        className="hidden"
+                      />
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => editFormAvatarInputRef.current?.click()}
+                          disabled={submitting}
+                        >
+                          <Upload className="w-4 h-4 mr-2" />
+                          Alterar foto
+                        </Button>
+                        {(editingProfile.avatar_url || editFormAvatarPreviewUrl) && !editFormAvatarRemove && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              if (editFormAvatarPreviewUrlRef.current) {
+                                URL.revokeObjectURL(editFormAvatarPreviewUrlRef.current);
+                                editFormAvatarPreviewUrlRef.current = null;
+                              }
+                              setEditFormAvatarPreviewUrl(null);
+                              setEditFormAvatarFile(null);
+                              setEditFormAvatarRemove(true);
+                            }}
+                            disabled={submitting}
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Remover
+                          </Button>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">Máx. 5MB. JPG, PNG ou WebP.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {canChangeRoleAndStatus() && (
                 <>
                   <div className="space-y-2">
@@ -1052,6 +1280,7 @@ export default function Colaboradores() {
                 </Button>
               </div>
             </form>
+            </div>
           )}
         </DialogContent>
       </Dialog>

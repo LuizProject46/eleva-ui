@@ -12,6 +12,7 @@ export interface User {
   email: string;
   role: UserRole;
   avatar?: string;
+  avatarThumbUrl?: string;
   department?: string;
   position?: string;
   tenantId?: string;
@@ -48,6 +49,7 @@ function mapProfileToUser(profile: {
   department?: string | null;
   position?: string | null;
   avatar_url?: string | null;
+  avatar_thumb_url?: string | null;
   tenant_id?: string | null;
 }): User {
   return {
@@ -58,6 +60,7 @@ function mapProfileToUser(profile: {
     department: profile.department ?? undefined,
     position: profile.position ?? undefined,
     avatar: profile.avatar_url ?? undefined,
+    avatarThumbUrl: profile.avatar_thumb_url ?? undefined,
     tenantId: profile.tenant_id ?? undefined,
   };
 }
@@ -65,14 +68,14 @@ function mapProfileToUser(profile: {
 async function fetchProfile(userId: string): Promise<User | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, email, name, role, department, position, avatar_url, tenant_id, is_active')
+    .select('id, email, name, role, department, position, avatar_url, avatar_thumb_url, tenant_id, is_active')
     .eq('id', userId)
     .maybeSingle();
 
   if (error) {
     const { data: fallback } = await supabase
       .from('profiles')
-      .select('id, email, name, role, department, position, avatar_url, is_active')
+      .select('id, email, name, role, department, position, avatar_url, avatar_thumb_url, is_active')
       .eq('id', userId)
       .maybeSingle();
     if (fallback) {
