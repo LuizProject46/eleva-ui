@@ -182,6 +182,16 @@ export function PeriodicityConfig({ tenantId }: PeriodicityConfigProps) {
       setSavingEntity(null);
       return;
     }
+
+    // TODO: Uncomment this when we have a way to delete the periodicity reminders.
+    // const { error: deleteError } = await supabase.from('periodicity_reminder_sent').delete().eq('tenant_id', tenantId).eq('entity_type', entityType);
+
+    // if (deleteError) {
+    //   toast.error(deleteError.message ?? 'Erro ao deletar notificações');
+    //   setSavingEntity(null);
+    //   return;
+    // }
+
     toast.success(`Configuração de ${label} salva`);
     setSavingEntity(null);
   };

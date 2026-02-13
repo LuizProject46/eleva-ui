@@ -71,6 +71,21 @@ function getNextPeriod(config: PeriodicityConfigRow, today: Date): { periodStart
   return { periodStart, periodEnd };
 }
 
+/** Returns the upcoming period (the one we remind about): period that starts after today. */
+function getUpcomingPeriodForReminder(config: PeriodicityConfigRow, today: Date): { periodStart: Date; periodEnd: Date } | null {
+  const next = getNextPeriod(config, today);
+  if (!next) return null;
+  // If we're still inside the current period, use the next period for reminder dates.
+  if (next.periodStart.getTime() <= today.getTime()) {
+    const intervalDays = getIntervalDays(config);
+    return {
+      periodStart: addDays(next.periodStart, intervalDays),
+      periodEnd: addDays(next.periodEnd, intervalDays),
+    };
+  }
+  return next;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -87,6 +102,7 @@ Deno.serve(async (req) => {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
+  // Today as UTC date (YYYY-MM-DD); cron should run at a fixed time so this is deterministic.
   const today = new Date();
   const todayStr = toDateOnly(today);
 
@@ -114,7 +130,7 @@ Deno.serve(async (req) => {
       : [];
     if (leadDaysArr.length === 0) continue;
 
-    const next = getNextPeriod(config, today);
+    const next = getUpcomingPeriodForReminder(config, today);
     if (!next) continue;
 
     const periodStartStr = toDateOnly(next.periodStart);
@@ -126,7 +142,8 @@ Deno.serve(async (req) => {
     for (const leadDays of leadDaysArr) {
       const reminderDate = addDays(next.periodStart, -leadDays);
       const reminderDateStr = toDateOnly(reminderDate);
-      if (todayStr < reminderDateStr || todayStr > periodStartStr) continue;
+      // Send only on the exact day that is lead_days before period start (one reminder per offset per run).
+      if (todayStr !== reminderDateStr) continue;
 
       const { data: existing } = await supabase
         .from('periodicity_reminder_sent')

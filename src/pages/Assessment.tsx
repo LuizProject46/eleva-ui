@@ -855,32 +855,34 @@ export default function Assessment() {
             </div>
 
             <div className="flex gap-4">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={async () => {
-                  setShowResult(false);
-                  setCurrentQuestion(0);
-                  setAnswers({});
-                  await upsertAssessment({
-                    status: 'in_progress',
-                    answers: {},
-                    result: null,
-                    completed_at: null,
-                  });
-                  fetchMyAssessment();
-                }}
-                disabled={isSaving || !isWithinAssessmentPeriod || alreadyCompletedInCurrentPeriod}
-                title={
-                  alreadyCompletedInCurrentPeriod
-                    ? 'Você já realizou o teste neste período.'
-                    : !isWithinAssessmentPeriod
-                      ? 'Refazer teste disponível apenas dentro do período configurado em Configurações.'
-                      : undefined
-                }
-              >
-                Refazer Teste
-              </Button>
+              {isWithinAssessmentPeriod && !alreadyCompletedInCurrentPeriod && (
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={async () => {
+                    setShowResult(false);
+                    setCurrentQuestion(0);
+                    setAnswers({});
+                    await upsertAssessment({
+                      status: 'in_progress',
+                      answers: {},
+                      result: null,
+                      completed_at: null,
+                    });
+                    fetchMyAssessment();
+                  }}
+                  disabled={isSaving}
+                  title={
+                    alreadyCompletedInCurrentPeriod
+                      ? 'Você já realizou o teste neste período.'
+                      : !isWithinAssessmentPeriod
+                        ? 'Refazer teste disponível apenas dentro do período configurado em Configurações.'
+                        : undefined
+                  }
+                >
+                  Refazer Teste
+                </Button>
+              )}
               <Button
                 className="flex-1 gradient-hero"
                 disabled={isDownloading}

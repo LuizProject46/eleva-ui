@@ -40,7 +40,7 @@ import {
   Check,
   ChevronsUpDown,
 } from 'lucide-react';
-import { toast } from 'sonner';
+
 import { useNotifications } from '@/contexts/NotificationContext';
 import { usePeriodicityWindow } from '@/hooks/usePeriodicityWindow';
 import { PeriodUnavailableMessage } from '@/components/PeriodUnavailableMessage';
@@ -51,6 +51,7 @@ import {
   type UserRole,
   type FormTypeOption,
 } from '@/lib/evaluationPermissions';
+import { toast } from '@/hooks/use-toast';
 
 type EvaluationType =
   | 'self'
@@ -758,7 +759,7 @@ export default function Evaluation() {
       query = query.range((p - 1) * size, p * size - 1);
       const { data, error, count } = await query;
       if (error) {
-        toast.error('Erro ao carregar avaliações recebidas');
+        toast({ title: 'Erro ao carregar avaliações recebidas', description: error.message, variant: 'destructive' });
         setLoading(false);
         return;
       }
@@ -795,7 +796,7 @@ export default function Evaluation() {
       query = query.range((p - 1) * size, p * size - 1);
       const { data, error, count } = await query;
       if (error) {
-        toast.error('Erro ao carregar avaliações enviadas');
+        toast({ title: 'Erro ao carregar avaliações enviadas', description: error.message, variant: 'destructive' });
         setLoading(false);
         return;
       }
@@ -827,7 +828,7 @@ export default function Evaluation() {
       query = query.range((p - 1) * size, p * size - 1);
       const { data, error, count } = await query;
       if (error) {
-        toast.error('Erro ao carregar autoavaliações');
+        toast({ title: 'Erro ao carregar autoavaliações', description: error.message, variant: 'destructive' });
         setLoading(false);
         return;
       }
@@ -861,7 +862,7 @@ export default function Evaluation() {
       query = query.range((p - 1) * size, p * size - 1);
       const { data, error, count } = await query;
       if (error) {
-        toast.error('Erro ao carregar autoavaliações da equipe');
+        toast({ title: 'Erro ao carregar autoavaliações da equipe', description: error.message, variant: 'destructive' });
         setLoading(false);
         return;
       }
@@ -1106,43 +1107,10 @@ export default function Evaluation() {
     setEvaluatedSearchResults([]);
   };
 
-  const handleSubmit = async () => {
-    if (!user?.tenantId || !user?.id) return;
+  const checkAlreadyEvaluatedInPeriod = useCallback(
+    async (evaluatedId: string, evaluationType: EvaluationType): Promise<boolean> => {
+      if (!currentPeriod || !user?.id || !evaluatedId || !evaluationType) return false;
 
-    const evaluatedId = formType === 'self' ? user.id : formEvaluatedId;
-    if (!evaluatedId) {
-      toast.error('Selecione o avaliado');
-      return;
-    }
-
-    const evaluatedRole = formType === 'self' ? (user.role as UserRole) : formEvaluatedRole;
-    if (evaluatedRole != null && !canEvaluate(user.role as UserRole, evaluatedRole, formType)) {
-      toast.error('Você não pode avaliar esta pessoa com o tipo selecionado.');
-      return;
-    }
-    if (formType !== 'self' && evaluatedRole == null) {
-      const profile = peopleOptions.find((p) => p.id === evaluatedId) ?? evaluatedSearchResults.find((p) => p.id === evaluatedId);
-      if (profile && !canEvaluate(user.role as UserRole, profile.role as UserRole, formType)) {
-        toast.error('Você não pode avaliar esta pessoa com o tipo selecionado.');
-        return;
-      }
-    }
-
-    const isDirectFeedback = formType === 'direct_feedback';
-    if (isDirectFeedback) {
-      if (!formFeedbackText.trim()) {
-        toast.error('Escreva o feedback');
-        return;
-      }
-    } else {
-      const allScored = competencies.every((c) => formScores[c.id] >= 1 && formScores[c.id] <= 5);
-      if (!allScored) {
-        toast.error('Preencha a nota (1 a 5) em todas as competências');
-        return;
-      }
-    }
-
-    if (currentPeriod && user?.id) {
       const periodStart = currentPeriod.periodStartAt.toISOString();
       const periodEnd = currentPeriod.periodEndAt.toISOString();
       const { data: existing } = await supabase
@@ -1150,12 +1118,13 @@ export default function Evaluation() {
         .select('id')
         .eq('evaluator_id', user.id)
         .eq('evaluated_id', evaluatedId)
-        .eq('type', formType)
+        .eq('type', evaluationType)
         .eq('status', 'submitted')
         .not('submitted_at', 'is', null)
         .gte('submitted_at', periodStart)
         .lt('submitted_at', periodEnd)
         .limit(1);
+
       if (existing?.length) {
         const nextDate = nextPeriodStart
           ? new Date(nextPeriodStart + 'T12:00:00Z').toLocaleDateString('pt-BR', {
@@ -1164,18 +1133,64 @@ export default function Evaluation() {
             year: 'numeric',
           })
           : '—';
-        toast.error(
-          `Você já enviou esta avaliação ou feedback para este colaborador neste período. Próximo disponível em ${nextDate}.`
-        );
+
+        toast({ title: `Você já enviou esta avaliação ou feedback para este colaborador neste período. Próximo disponível em ${nextDate}.`, variant: 'destructive', duration: 3000 });
+        return true;
+      }
+
+      return false;
+    },
+    [currentPeriod, user?.id, nextPeriodStart]
+  );
+
+  const handleSubmit = async () => {
+    if (!user?.tenantId || !user?.id) return;
+
+    const evaluatedId = formType === 'self' ? user.id : formEvaluatedId;
+    if (!evaluatedId) {
+      toast({ title: 'Selecione o avaliado', variant: 'destructive' });
+      return;
+    }
+
+    const evaluatedRole = formType === 'self' ? (user.role as UserRole) : formEvaluatedRole;
+    if (evaluatedRole != null && !canEvaluate(user.role as UserRole, evaluatedRole, formType)) {
+      toast({ title: 'Você não pode avaliar esta pessoa com o tipo selecionado.', variant: 'destructive' });
+      return;
+    }
+    if (formType !== 'self' && evaluatedRole == null) {
+      const profile = peopleOptions.find((p) => p.id === evaluatedId) ?? evaluatedSearchResults.find((p) => p.id === evaluatedId);
+      if (profile && !canEvaluate(user.role as UserRole, profile.role as UserRole, formType)) {
+        toast({ title: 'Você não pode avaliar esta pessoa com o tipo selecionado.', variant: 'destructive' });
         return;
       }
     }
+
+    const isDirectFeedback = formType === 'direct_feedback';
+    if (isDirectFeedback) {
+      if (!formFeedbackText.trim()) {
+        toast({ title: 'Escreva o feedback', variant: 'destructive' });
+        return;
+      }
+    } else {
+      const allScored = competencies.every((c) => formScores[c.id] >= 1 && formScores[c.id] <= 5);
+      if (!allScored) {
+        toast({ title: 'Preencha a nota (1 a 5) em todas as competências', variant: 'destructive', duration: 2000 });
+        return;
+      }
+    }
+
+    if (currentPeriod && user?.id) {
+      const evaluatedId = formType === 'self' ? user.id : formEvaluatedId;
+      const isAlreadyEvaluated = await checkAlreadyEvaluatedInPeriod(evaluatedId, formType);
+      if (isAlreadyEvaluated) return;
+    }
+
 
     setSubmitting(true);
     try {
       const { data: { session }, error: sessionError } = await supabase.auth.refreshSession();
       if (sessionError || !session?.access_token) {
-        toast.error('Sessão expirada. Faça login novamente.');
+        toast({ title: 'Sessão expirada. Faça login novamente.', variant: 'destructive' });
         setSubmitting(false);
         return;
       }
@@ -1256,7 +1271,7 @@ export default function Evaluation() {
         if (emailErr) console.warn('Email notification failed:', emailErr);
       }
 
-      toast.success(isDirectFeedback ? 'Feedback enviado!' : 'Avaliação enviada!');
+      toast({ title: isDirectFeedback ? 'Feedback enviado!' : 'Avaliação enviada!', variant: 'default' });
 
       setFormEvaluatedId('');
       setFormEvaluatedRole(null);
@@ -1281,16 +1296,30 @@ export default function Evaluation() {
       const isDuplicateInPeriod =
         msg.includes('já enviou') && msg.includes('neste período');
       if (isDuplicateInPeriod) {
-        toast.error(
-          msg.includes('Próximo disponível')
+        toast({
+          title: msg.includes('Próximo disponível')
             ? msg
-            : `Você já enviou esta avaliação ou feedback para este colaborador neste período. Próximo disponível em ${nextPeriodStart ? new Date(nextPeriodStart + 'T12:00:00Z').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'}.`
-        );
+            : `Você já enviou esta avaliação ou feedback para este colaborador neste período. Próximo disponível em ${nextPeriodStart ? new Date(nextPeriodStart + 'T12:00:00Z').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '—'}.`, variant: 'destructive', duration: 3000
+        });
       } else {
-        toast.error('Erro ao enviar. Tente novamente.');
+        toast({ title: 'Erro ao enviar. Tente novamente.', variant: 'destructive' });
       }
     }
     setSubmitting(false);
+  };
+
+
+  const onSelectEvaluated = async (id: string, role: UserRole) => {
+    setFormEvaluatedId(id);
+    setFormEvaluatedRole(id ? role : null);
+    const chosen = id ? evaluatedSearchResults.find((p) => p.id === id) : null;
+    setFormEvaluatedName(chosen?.name ?? '');
+    setEvaluatedSearchQuery('');
+
+    if (id) {
+      const isAlreadyEvaluated = await checkAlreadyEvaluatedInPeriod(id, formType);
+      if (isAlreadyEvaluated) return;
+    }
   };
 
 
@@ -1468,13 +1497,7 @@ export default function Evaluation() {
                     onSearchQueryChange={setEvaluatedSearchQuery}
                     searchResults={evaluatedSearchResults}
                     searchLoading={evaluatedSearchLoading}
-                    onSelect={(id, role) => {
-                      setFormEvaluatedId(id);
-                      setFormEvaluatedRole(id ? (role as UserRole) : null);
-                      const chosen = id ? evaluatedSearchResults.find((p) => p.id === id) : null;
-                      setFormEvaluatedName(chosen?.name ?? '');
-                      setEvaluatedSearchQuery('');
-                    }}
+                    onSelect={onSelectEvaluated}
                     placeholder="Buscar por nome..."
                   />
                 </div>
