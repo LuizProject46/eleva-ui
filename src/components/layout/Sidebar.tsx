@@ -14,6 +14,7 @@ import {
   ClipboardList,
   Gamepad2,
   Lock,
+  GraduationCap,
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
@@ -25,7 +26,8 @@ import { cn } from '@/lib/utils';
 
 const employeeNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-  { icon: ClipboardCheck, label: 'Trilha de Desenvolvimento', path: '/onboarding' },
+  // { icon: ClipboardCheck, label: 'Trilha de Desenvolvimento', path: '/onboarding' },
+  { icon: GraduationCap, label: 'Meus Cursos', path: '/courses' },
   { icon: UserCheck, label: 'Avaliação/Feedback', path: '/evaluation' },
   { icon: Users, label: 'Mentoria', path: '/mentoring' },
   { icon: Brain, label: 'Teste Comportamental', path: '/assessment' },
@@ -33,20 +35,22 @@ const employeeNavItems = [
 
 const managerNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-  { icon: ClipboardCheck, label: 'Onboarding da Equipe', path: '/onboarding' },
+  // { icon: ClipboardCheck, label: 'Onboarding da Equipe', path: '/onboarding' },
+  { icon: GraduationCap, label: 'Cursos / Treinamentos', path: '/courses' },
   { icon: UserCheck, label: 'Avaliações', path: '/evaluation' },
   { icon: Users, label: 'Mentorias', path: '/mentoring' },
   { icon: Brain, label: 'Teste Comportamental', path: '/assessment' },
-  { icon: UserPlus, label: 'Minha Equipe', path: '/colaboradores' },
+  { icon: UserPlus, label: 'Minha Equipe', path: '/employees' },
 ];
 
 const hrNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-  { icon: ClipboardCheck, label: 'Onboarding', path: '/onboarding' },
+  // { icon: ClipboardCheck, label: 'Onboarding', path: '/onboarding' },
+  { icon: GraduationCap, label: 'Cursos / Treinamentos', path: '/courses' },
   { icon: UserCheck, label: 'Avaliações', path: '/evaluation' },
   { icon: Users, label: 'Mentorias', path: '/mentoring' },
   { icon: Brain, label: 'Teste Comportamental', path: '/assessment' },
-  { icon: UserPlus, label: 'Colaboradores', path: '/colaboradores' },
+  { icon: UserPlus, label: 'Colaboradores', path: '/employees' },
 ];
 
 const comingSoonConfig = {

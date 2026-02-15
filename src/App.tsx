@@ -8,17 +8,20 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import { BrandProvider } from "@/contexts/BrandContext";
 import { TenantProvider } from "@/contexts/TenantContext";
-import Login from "./pages/Login";
-import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
-import Dashboard from "./pages/Dashboard";
-import Onboarding from "./pages/Onboarding";
-import Evaluation from "./pages/Evaluation";
-import Mentoring from "./pages/Mentoring";
-import Assessment from "./pages/Assessment";
-import Colaboradores from "./pages/Colaboradores";
-import Settings from "./pages/Settings";
-import NotFound from "./pages/NotFound";
+import Login from "@/pages/Login";
+import ForgotPassword from "@/pages/ForgotPassword";
+import ResetPassword from "@/pages/ResetPassword";
+import Dashboard from "@/pages/Dashboard";
+import Onboarding from "@/pages/Onboarding";
+import Evaluation from "@/pages/Evaluation";
+import Mentoring from "@/pages/Mentoring";
+import Assessment from "@/pages/Assessment";
+import Colaboradores from "@/pages/Colaboradores";
+import Courses from "@/pages/Courses";
+import CourseQuestionnaire from "@/pages/CourseQuestionnaire";
+import CourseProgress from "@/pages/CourseProgress";
+import Settings from "@/pages/Settings";
+import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
 
@@ -88,7 +91,10 @@ function AppRoutes() {
       <Route path="/evaluation" element={<ProtectedRoute><Evaluation /></ProtectedRoute>} />
       <Route path="/mentoring" element={<ProtectedRoute><Mentoring /></ProtectedRoute>} />
       <Route path="/assessment" element={<ProtectedRoute><Assessment /></ProtectedRoute>} />
-      <Route path="/colaboradores" element={<ProtectedRoute><Colaboradores /></ProtectedRoute>} />
+      <Route path="/employees" element={<ProtectedRoute><Colaboradores /></ProtectedRoute>} />
+      <Route path="/courses" element={<ProtectedRoute><Courses /></ProtectedRoute>} />
+      <Route path="/courses/assignment/:assignmentId/questionnaire" element={<ProtectedRoute><CourseQuestionnaire /></ProtectedRoute>} />
+      <Route path="/courses/assignment/:assignmentId/start" element={<ProtectedRoute><CourseProgress /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
