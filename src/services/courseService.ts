@@ -136,6 +136,7 @@ export async function createCourse(
       type: payload.type ?? 'optional',
       source: payload.source ?? 'manual',
       cover_url: payload.cover_url ?? null,
+      workload_hours: payload.workload_hours ?? null,
       created_by: payload.created_by ?? null,
     })
     .select()
@@ -147,7 +148,7 @@ export async function createCourse(
 
 export async function updateCourse(
   courseId: string,
-  updates: Partial<Pick<Course, 'title' | 'description' | 'type' | 'cover_url'>>
+  updates: Partial<Pick<Course, 'title' | 'description' | 'type' | 'cover_url' | 'workload_hours'>>
 ): Promise<Course> {
   const { data, error } = await supabase
     .from('courses')

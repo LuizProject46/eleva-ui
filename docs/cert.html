@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8" />
+<title>Certificado {{COMPANY_NAME}}</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet">
+
+<!--
+  Reference template for certificate layout.
+  Placeholders (replaced at PDF generation):
+  - {{COMPANY_NAME}} tenant company name
+  - {{LOGO_URL}} or logo as data URL for whitelabel
+  - {{PRIMARY_COLOR}} / {{ACCENT_COLOR}} tenant colors (hex)
+  - {{USER_NAME}} {{COURSE_NAME}} {{WORKLOAD}} {{CERTIFICATE_CODE}} {{COMPLETION_DATE}}
+  - {{QR_CODE}} validation QR image
+  - {{VALIDATION_URL}} verification page
+-->
+<style>
+@page { size: A4; margin: 0; }
+
+body{
+margin:0;
+background:#f5f3ee;
+font-family:'Montserrat', sans-serif;
+}
+
+.certificado{
+width:210mm;
+height:297mm;
+margin:auto;
+background:#fbf8f2;
+position:relative;
+box-sizing:border-box;
+padding:35mm 25mm;
+}
+
+/* Moldura dupla – cor do tenant (primary) */
+.certificado:before{
+content:'';
+position:absolute;
+top:15mm; left:15mm; right:15mm; bottom:15mm;
+border:3px solid var(--frame-color, #c9a24d);
+}
+.certificado:after{
+content:'';
+position:absolute;
+top:20mm; left:20mm; right:20mm; bottom:20mm;
+border:1px solid var(--frame-color, #c9a24d);
+}
+
+.topo{
+text-align:center;
+margin-bottom:30px;
+}
+
+.topo img{
+width:220px;
+}
+
+.titulo{
+font-family:'Cormorant Garamond', serif;
+text-align:center;
+font-size:38px;
+letter-spacing:4px;
+margin:30px 0;
+color:#2d2d2d;
+}
+
+.texto{
+text-align:center;
+font-size:18px;
+margin:10px 0;
+}
+
+.nome{
+font-family:'Cormorant Garamond', serif;
+text-align:center;
+font-size:52px;
+color:var(--primary-color, #1f3d2b);
+margin:10px 0 20px;
+border-bottom:1px solid #999;
+display:inline-block;
+padding:0 20px 8px;
+}
+
+.curso{
+font-family:'Cormorant Garamond', serif;
+text-align:center;
+font-size:28px;
+color:var(--primary-color, #1f3d2b);
+margin-top:8px;
+}
+
+.detalhes{
+text-align:center;
+margin-top:35px;
+font-size:16px;
+line-height:28px;
+}
+
+.rodape{
+position:absolute;
+bottom:45mm;
+left:25mm;
+right:25mm;
+display:flex;
+justify-content:space-between;
+align-items:flex-end;
+}
+
+.assinatura{
+text-align:center;
+width:33%;
+}
+
+.assinatura img{
+width:160px;
+}
+
+.selo{
+width:33%;
+text-align:center;
+}
+
+.selo img{
+width:150px;
+}
+
+.qr{
+width:33%;
+text-align:center;
+}
+
+.qr img{
+width:120px;
+}
+
+.validacao{
+font-size:13px;
+margin-top:8px;
+}
+</style>
+</head>
+
+<body>
+<div class="certificado">
+<div class="topo">
+    <img src="{{LOGO_URL}}" alt="{{COMPANY_NAME}}">
+</div>
+
+<div class="titulo">CERTIFICADO DE CONCLUSÃO</div>
+
+<div class="texto">Este certificado é concedido a</div>
+
+<div style="text-align:center;">
+    <div class="nome">{{USER_NAME}}</div>
+</div>
+
+<div class="texto">pela conclusão do curso</div>
+<div class="curso">{{COURSE_NAME}}</div>
+
+<div class="detalhes">
+    Carga horária: {{WORKLOAD}}<br>
+    Código do certificado: {{CERTIFICATE_CODE}}<br>
+    Data de conclusão: {{COMPLETION_DATE}}
+</div>
+
+<div class="rodape">
+    <div class="assinatura">
+        <img src="assinatura.png" alt=""><br>
+        {{COMPANY_NAME}}
+    </div>
+
+    <div class="selo">
+        <img src="selo.png">
+    </div>
+
+    <div class="qr">
+        <img src="{{QR_CODE}}">
+        <div class="validacao">
+            Verifique a autenticidade:<br>
+            {{VALIDATION_URL}}
+        </div>
+    </div>
+</div>
+</div>
+</body>
+</html>

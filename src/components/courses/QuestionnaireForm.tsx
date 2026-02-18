@@ -7,6 +7,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { submitAttempt } from '@/services/courseQuestionnaireService';
+import { generateCertificateIfEligible } from '@/services/certificateService';
 import type { CourseQuestionnaire, QuestionnaireQuestionForAttempt } from '@/types/courses';
 
 interface QuestionnaireFormProps {
@@ -78,7 +79,12 @@ export function QuestionnaireForm({
       setResult({ score, passed });
       if (passed) {
         toast.success(`Aprovado! Sua nota: ${score}%.`);
-        onSubmitted();
+        try {
+          await generateCertificateIfEligible(assignmentId);
+        } catch {
+          // Certificate generation is best-effort; do not block success UX
+        }
+
       }
     } catch {
       toast.error('Erro ao enviar. Tente novamente.');

@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { List } from 'lucide-react';
 import { toast } from 'sonner';
 import { getAssignment } from '@/services/courseAssignmentService';
-import { getCourse, listRoadmapItems } from '@/services/courseService';
+import { getCourse, listRoadmapItems, getQuestionnaireByCourseId } from '@/services/courseService';
 import {
   getCompletedRoadmapItemIds,
   completeRoadmapItem,
@@ -29,6 +29,7 @@ export default function CourseProgress() {
   const [completingId, setCompletingId] = useState<string | null>(null);
   const [lessonListSheetOpen, setLessonListSheetOpen] = useState(false);
   const [quizPassed, setQuizPassed] = useState(false);
+  const [hasQuestionnaire, setHasQuestionnaire] = useState(false);
 
   const load = useCallback(async () => {
     if (!assignmentId) return;
@@ -40,9 +41,10 @@ export default function CourseProgress() {
         navigate('/courses', { replace: true });
         return;
       }
-      const [c, items] = await Promise.all([
+      const [c, items, q] = await Promise.all([
         getCourse(a.course_id),
         listRoadmapItems(a.course_id),
+        getQuestionnaireByCourseId(a.course_id),
       ]);
       if (!c) {
         toast.error('Curso não encontrado.');
@@ -51,6 +53,7 @@ export default function CourseProgress() {
       }
       setCourse(c);
       setRoadmapItems(items);
+      setHasQuestionnaire(!!q);
       const ids = await getCompletedRoadmapItemIds(assignmentId);
       setCompletedIds(ids);
       const passed = await getLatestPassedAttempt(assignmentId);
@@ -108,9 +111,14 @@ export default function CourseProgress() {
     );
   }
 
-  const completedCount = roadmapItems.filter((i) => completedIds.has(i.id)).length;
+  const roadmapCompletedCount = roadmapItems.filter((i) => completedIds.has(i.id)).length;
   const totalSteps = roadmapItems.length;
-  const progressPercent = totalSteps > 0 ? Math.round((completedCount / totalSteps) * 100) : 0;
+  const displayTotal = hasQuestionnaire ? totalSteps + 1 : totalSteps;
+  const displayCompleted = hasQuestionnaire
+    ? roadmapCompletedCount + (quizPassed ? 1 : 0)
+    : roadmapCompletedCount;
+  const progressPercent =
+    displayTotal > 0 ? Math.round((displayCompleted / displayTotal) * 100) : 0;
 
   const currentStepIndex = selectedStepId
     ? roadmapItems.findIndex((i) => i.id === selectedStepId)
@@ -139,9 +147,13 @@ export default function CourseProgress() {
         setLessonListSheetOpen(false);
       }}
       progressPercent={progressPercent}
-      completedCount={completedCount}
-      totalSteps={totalSteps}
+      completedCount={displayCompleted}
+      totalSteps={displayTotal}
       isInSheet={false}
+      hasQuestionnaire={hasQuestionnaire}
+      allStepsCompleted={allStepsCompleted}
+      quizPassed={quizPassed}
+      onStartQuestionnaire={goToQuestionnaire}
     />
   );
 
@@ -171,9 +183,13 @@ export default function CourseProgress() {
                     setLessonListSheetOpen(false);
                   }}
                   progressPercent={progressPercent}
-                  completedCount={completedCount}
-                  totalSteps={totalSteps}
+                  completedCount={displayCompleted}
+                  totalSteps={displayTotal}
                   isInSheet
+                  hasQuestionnaire={hasQuestionnaire}
+                  allStepsCompleted={allStepsCompleted}
+                  quizPassed={quizPassed}
+                  onStartQuestionnaire={goToQuestionnaire}
                 />
               </div>
             </SheetContent>
@@ -202,18 +218,6 @@ export default function CourseProgress() {
             </aside>
           </div>
         ) : null}
-
-        {roadmapItems.length > 0 && allStepsCompleted && assignmentId && (
-          <div className="rounded-lg border border-border bg-muted/30 p-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-muted-foreground">
-              Todas as etapas concluídas.
-              {!quizPassed && ' Realize o questionário final para validar seu aprendizado.'}
-            </p>
-            {!quizPassed && (
-              <Button onClick={goToQuestionnaire}>Iniciar questionário</Button>
-            )}
-          </div>
-        )}
 
         {roadmapItems.length === 0 ? (
           <div className="rounded-lg border border-border bg-muted/30 p-6 text-center text-muted-foreground">

@@ -16,6 +16,7 @@ export interface Course {
   type: CourseType;
   source: CourseSource;
   cover_url: string | null;
+  workload_hours: number | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -111,6 +112,60 @@ export interface CourseAssignmentAdminRow {
   completed_at: string | null;
 }
 
+/** Certificate (immutable; one per completed assignment). */
+export interface Certificate {
+  id: string;
+  assignment_id: string;
+  user_id: string;
+  course_id: string;
+  tenant_id: string;
+  certificate_code: string;
+  user_name: string;
+  course_name: string;
+  workload_hours: number | null;
+  completion_date: string;
+  created_at: string;
+}
+
+/** Tenant branding for certificate PDF (whitelabel). */
+export interface CertificateBranding {
+  companyName: string;
+  logoDataUrl?: string;
+  primaryColorHex: string;
+  accentColorHex: string;
+}
+
+/** Payload for certificate PDF generation. */
+export interface CertificatePdfPayload {
+  userName: string;
+  courseName: string;
+  workloadHours: number | null;
+  certificateCode: string;
+  completionDate: string;
+  validationUrl: string;
+  qrDataUrl: string;
+  /** Whitelabel: tenant logo, colors, company name (signature). */
+  branding?: CertificateBranding;
+}
+
+/** Row from get_my_certificates (paginated list). */
+export interface MyCertificateRow {
+  id: string;
+  assignment_id: string;
+  course_name: string;
+  completion_date: string;
+  certificate_code: string;
+  total_count: number;
+}
+
+/** Row from get_certificate_for_verification (public by code). */
+export interface CertificateVerificationRow {
+  user_name: string;
+  course_name: string;
+  completion_date: string;
+  certificate_code: string;
+}
+
 /** Row from get_course_assignments_admin_progress (HR progress grid with pagination). */
 export interface CourseAssignmentProgressRow {
   assignment_id: string;
@@ -124,6 +179,7 @@ export interface CourseAssignmentProgressRow {
   progress_pct: number;
   total_steps: number;
   completed_steps: number;
+  certificate_id: string | null;
   total_count: number;
 }
 
@@ -153,6 +209,7 @@ export interface CourseInsert {
   type?: CourseType;
   source?: CourseSource;
   cover_url?: string | null;
+  workload_hours?: number | null;
   created_by?: string | null;
 }
 

@@ -42,6 +42,7 @@ function rowToCourse(row: MyAssignmentWithProgressRow): Course {
     type: row.course_type,
     source: 'manual',
     cover_url: row.course_cover_url,
+    workload_hours: null,
     created_by: null,
     created_at: '',
     updated_at: '',

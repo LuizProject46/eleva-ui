@@ -98,6 +98,7 @@ export function CourseEditor({ courseId, onClose, onSaved }: CourseEditorProps) 
   const [isLoading, setIsLoading] = useState(true);
   const [formTitle, setFormTitle] = useState('');
   const [formDescription, setFormDescription] = useState('');
+  const [formWorkloadHours, setFormWorkloadHours] = useState('');
   const [formType, setFormType] = useState<Course['type']>('optional');
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
@@ -120,6 +121,7 @@ export function CourseEditor({ courseId, onClose, onSaved }: CourseEditorProps) 
       setCourse(c);
       setFormTitle(c.title);
       setFormDescription(c.description ?? '');
+      setFormWorkloadHours(c.workload_hours != null ? String(c.workload_hours) : '');
       setFormType(c.type);
     }
   }, [courseId]);
@@ -174,10 +176,17 @@ export function CourseEditor({ courseId, onClose, onSaved }: CourseEditorProps) 
         const { path } = await uploadCourseCover(course.tenant_id, course.id, coverFile);
         coverUrl = path;
       }
+      const hours = formWorkloadHours.trim()
+        ? parseInt(formWorkloadHours.trim(), 10)
+        : null;
+      const workload =
+        hours != null && !Number.isNaN(hours) && hours > 0 ? hours : null;
+
       await updateCourse(course.id, {
         title: formTitle,
         description: formDescription || null,
         type: formType,
+        workload_hours: workload,
         ...(coverUrl !== undefined && { cover_url: coverUrl }),
       });
       setCoverFile(null);
@@ -263,6 +272,21 @@ export function CourseEditor({ courseId, onClose, onSaved }: CourseEditorProps) 
                   rows={3}
                   className="resize-none"
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-workload">Carga horária (horas)</Label>
+                <Input
+                  id="edit-workload"
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={formWorkloadHours}
+                  onChange={(e) => setFormWorkloadHours(e.target.value)}
+                  placeholder="Ex: 8"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Exibida no certificado de conclusão.
+                </p>
               </div>
               <div className="space-y-2">
                 <Label>Capa do curso</Label>

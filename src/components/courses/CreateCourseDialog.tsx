@@ -40,6 +40,7 @@ export function CreateCourseDialog({
   const [mode, setMode] = useState<'manual' | 'pdf'>('manual');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [workloadHours, setWorkloadHours] = useState('');
   const [type, setType] = useState<CourseType>('optional');
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
@@ -86,12 +87,17 @@ export function CreateCourseDialog({
     }
     setIsSubmitting(true);
     try {
+      const hours = workloadHours.trim() ? parseInt(workloadHours.trim(), 10) : null;
+      const workload =
+        hours != null && !Number.isNaN(hours) && hours > 0 ? hours : null;
+
       const course = await createCourse({
         tenant_id: tenantId,
         title: title.trim(),
         description: description.trim() || null,
         type,
         source: mode === 'pdf' ? 'imported_pdf' : 'manual',
+        workload_hours: workload,
         created_by: createdBy,
       });
       await createQuestionnaire({
@@ -117,6 +123,7 @@ export function CreateCourseDialog({
       toast.success(mode === 'pdf' ? 'Curso criado a partir do PDF.' : 'Curso criado.');
       setTitle('');
       setDescription('');
+      setWorkloadHours('');
       setType('optional');
       setPdfFile(null);
       setCoverFile(null);
@@ -159,6 +166,21 @@ export function CreateCourseDialog({
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Breve descrição do curso"
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="course-workload">Carga horária (opcional)</Label>
+              <Input
+                id="course-workload"
+                type="number"
+                min={1}
+                step={1}
+                value={workloadHours}
+                onChange={(e) => setWorkloadHours(e.target.value)}
+                placeholder="Ex: 8"
+              />
+              <p className="text-xs text-muted-foreground">
+                Horas do curso. Aparece no certificado de conclusão.
+              </p>
             </div>
             <div className="space-y-2">
               <Label>Capa do curso (opcional)</Label>

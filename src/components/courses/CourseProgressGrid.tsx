@@ -21,13 +21,15 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, ChevronLeft, ChevronRight, BarChart3 } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, BarChart3, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { listCourses } from '@/services/courseService';
 import { listCourseAssignmentsAdminProgress } from '@/services/courseAssignmentService';
+import { useCertificateDownload } from '@/hooks/useCertificateDownload';
 import type { Course } from '@/types/courses';
 import type { CourseAssignmentProgressRow } from '@/types/courses';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 const SEARCH_DEBOUNCE_MS = 300;
 const PAGE_SIZE = 10;
@@ -105,7 +107,9 @@ function CircleProgressBar({ value }: { value: number }) {
 }
 
 export function CourseProgressGrid() {
-  const { user } = useAuth();
+  const { user, isHR } = useAuth();
+  const { downloadByAssignmentId, isDownloading, downloadingCertificateId } =
+    useCertificateDownload();
   const [rows, setRows] = useState<CourseAssignmentProgressRow[]>([]);
   const [total, setTotal] = useState(0);
   const [courses, setCourses] = useState<Course[]>([]);
@@ -272,6 +276,9 @@ export function CourseProgressGrid() {
                     <TableHead className="text-right">Progresso</TableHead>
                     <TableHead className="hidden md:table-cell text-center">Etapas</TableHead>
                     <TableHead className="hidden lg:table-cell">Concluído em</TableHead>
+                    {isHR() && (
+                      <TableHead className="text-right w-[120px]">Certificado</TableHead>
+                    )}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -304,6 +311,41 @@ export function CourseProgressGrid() {
                       <TableCell className="text-muted-foreground hidden lg:table-cell">
                         {formatCompletedAt(row.completed_at)}
                       </TableCell>
+                      {isHR() && (
+                        <TableCell className="text-right">
+                          {row.certificate_id ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="gap-1"
+                                  onClick={() => downloadByAssignmentId(row.assignment_id)}
+                                  disabled={
+                                    isDownloading &&
+                                    downloadingCertificateId === row.assignment_id
+                                  }
+                                >
+                                  {isDownloading &&
+                                  downloadingCertificateId === row.assignment_id ? (
+                                    '…'
+                                  ) : (
+                                    <>
+                                      <Download className="w-4 h-4" />
+                                      Baixar
+                                    </>
+                                  )}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                Baixar certificado em PDF
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">—</span>
+                          )}
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>

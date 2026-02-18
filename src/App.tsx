@@ -21,6 +21,8 @@ import Courses from "@/pages/Courses";
 import CourseQuestionnaire from "@/pages/CourseQuestionnaire";
 import CourseProgress from "@/pages/CourseProgress";
 import Settings from "@/pages/Settings";
+import Certificates from "@/pages/Certificates";
+import Verificar from "@/pages/Verificar";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -96,6 +98,8 @@ function AppRoutes() {
       <Route path="/courses/assignment/:assignmentId/questionnaire" element={<ProtectedRoute><CourseQuestionnaire /></ProtectedRoute>} />
       <Route path="/courses/assignment/:assignmentId/start" element={<ProtectedRoute><CourseProgress /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+      <Route path="/certificates" element={<ProtectedRoute><Certificates /></ProtectedRoute>} />
+      <Route path="/verificar" element={<Verificar />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

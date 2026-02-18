@@ -28,6 +28,7 @@ const employeeNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   // { icon: ClipboardCheck, label: 'Trilha de Desenvolvimento', path: '/onboarding' },
   { icon: GraduationCap, label: 'Meus Cursos', path: '/courses' },
+  { icon: Award, label: 'Certificados', path: '/certificates' },
   { icon: UserCheck, label: 'Avaliação/Feedback', path: '/evaluation' },
   { icon: Users, label: 'Mentoria', path: '/mentoring' },
   { icon: Brain, label: 'Teste Comportamental', path: '/assessment' },
@@ -37,6 +38,7 @@ const managerNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   // { icon: ClipboardCheck, label: 'Onboarding da Equipe', path: '/onboarding' },
   { icon: GraduationCap, label: 'Cursos / Treinamentos', path: '/courses' },
+  { icon: Award, label: 'Certificados', path: '/certificates' },
   { icon: UserCheck, label: 'Avaliações', path: '/evaluation' },
   { icon: Users, label: 'Mentorias', path: '/mentoring' },
   { icon: Brain, label: 'Teste Comportamental', path: '/assessment' },
@@ -54,13 +56,11 @@ const hrNavItems = [
 ];
 
 const comingSoonConfig = {
-  certificado: { enabled: false, path: '/certificado' },
   pesquisaClima: { enabled: false, path: '/pesquisa-clima' },
   gamificacao: { enabled: false, path: '/gamificacao' },
 } as const;
 
 const comingSoonNavItems = [
-  { id: 'certificado' as const, icon: Award, label: 'Certificado' },
   { id: 'pesquisaClima' as const, icon: ClipboardList, label: 'Pesquisa de Clima' },
   { id: 'gamificacao' as const, icon: Gamepad2, label: 'Gamificação' },
 ];
