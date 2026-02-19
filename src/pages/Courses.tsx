@@ -34,30 +34,30 @@ export default function Courses() {
     );
   }
 
-  // if (isManager()) {
-  //   return (
-  //     <MainLayout>
-  //       <Tabs defaultValue="my-courses" className="space-y-4">
-  //         <TabsList className="grid w-full max-w-md grid-cols-2">
-  //           <TabsTrigger value="my-courses" className="gap-2">
-  //             <GraduationCap className="w-4 h-4" />
-  //             Meus Cursos
-  //           </TabsTrigger>
-  //           <TabsTrigger value="manage" className="gap-2">
-  //             <LayoutList className="w-4 h-4" />
-  //             Cursos / Treinamentos
-  //           </TabsTrigger>
-  //         </TabsList>
-  //         <TabsContent value="my-courses">
-  //           <CoursesEmployee />
-  //         </TabsContent>
-  //         <TabsContent value="manage">
-  //           <CoursesAdmin />
-  //         </TabsContent>
-  //       </Tabs>
-  //     </MainLayout>
-  //   );
-  // }
+  if (isManager()) {
+    return (
+      <MainLayout>
+        <Tabs defaultValue="my-courses" className="space-y-4">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="my-courses" className="gap-2">
+              <GraduationCap className="w-4 h-4" />
+              Meus Cursos
+            </TabsTrigger>
+            <TabsTrigger value="progress" className="gap-2">
+              <BarChart3 className="w-4 h-4" />
+              Progresso dos colaboradores
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="my-courses" className="mt-4">
+            <CoursesEmployee />
+          </TabsContent>
+          <TabsContent value="progress" className="mt-4">
+            <CourseProgressGrid />
+          </TabsContent>
+        </Tabs>
+      </MainLayout>
+    );
+  }
 
   return (
     <MainLayout>

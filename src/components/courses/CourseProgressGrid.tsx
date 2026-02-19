@@ -107,7 +107,8 @@ function CircleProgressBar({ value }: { value: number }) {
 }
 
 export function CourseProgressGrid() {
-  const { user, isHR } = useAuth();
+  const { user, isHR, isManager } = useAuth();
+  const canDownloadCertificate = isHR() || isManager();
   const { downloadByAssignmentId, isDownloading, downloadingCertificateId } =
     useCertificateDownload();
   const [rows, setRows] = useState<CourseAssignmentProgressRow[]>([]);
@@ -271,12 +272,13 @@ export function CourseProgressGrid() {
                   <TableRow>
                     <TableHead>Colaborador</TableHead>
                     <TableHead className="hidden sm:table-cell">Setor</TableHead>
+                    <TableHead className="hidden md:table-cell">Cargo</TableHead>
                     <TableHead>Curso</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Progresso</TableHead>
                     <TableHead className="hidden md:table-cell text-center">Etapas</TableHead>
                     <TableHead className="hidden lg:table-cell">Concluído em</TableHead>
-                    {isHR() && (
+                    {canDownloadCertificate && (
                       <TableHead className="text-right w-[120px]">Certificado</TableHead>
                     )}
                   </TableRow>
@@ -287,6 +289,9 @@ export function CourseProgressGrid() {
                       <TableCell className="font-medium">{row.user_name}</TableCell>
                       <TableCell className="text-muted-foreground hidden sm:table-cell">
                         {row.user_department ?? '—'}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground hidden md:table-cell">
+                        {row.user_position ?? '—'}
                       </TableCell>
                       <TableCell>{row.course_title}</TableCell>
                       <TableCell>
@@ -311,7 +316,7 @@ export function CourseProgressGrid() {
                       <TableCell className="text-muted-foreground hidden lg:table-cell">
                         {formatCompletedAt(row.completed_at)}
                       </TableCell>
-                      {isHR() && (
+                      {canDownloadCertificate && (
                         <TableCell className="text-right">
                           {row.certificate_id ? (
                             <Tooltip>

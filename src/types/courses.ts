@@ -174,6 +174,7 @@ export interface CourseAssignmentProgressRow {
   user_id: string;
   user_name: string;
   user_department: string | null;
+  user_position: string | null;
   status: CourseAssignmentStatus;
   completed_at: string | null;
   progress_pct: number;
