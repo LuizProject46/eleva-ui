@@ -166,6 +166,9 @@ export interface CertificateVerificationRow {
   certificate_code: string;
 }
 
+/** Approval status for completed course (based on questionnaire passing_score). */
+export type ApprovalStatus = 'approved' | 'failed';
+
 /** Row from get_course_assignments_admin_progress (HR progress grid with pagination). */
 export interface CourseAssignmentProgressRow {
   assignment_id: string;
@@ -181,6 +184,14 @@ export interface CourseAssignmentProgressRow {
   total_steps: number;
   completed_steps: number;
   certificate_id: string | null;
+  /** Course questionnaire passing score (percentage). */
+  passing_score: number | null;
+  /** Approved when score >= passing_score; failed otherwise; null when not completed. */
+  approval_status: ApprovalStatus | null;
+  /** Correct answers in latest attempt. */
+  score_correct: number | null;
+  /** Total questions in latest attempt. */
+  score_total: number | null;
   total_count: number;
 }
 

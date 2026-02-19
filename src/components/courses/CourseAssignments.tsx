@@ -36,7 +36,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { UserPlus, Trash2, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { assignCourseToUsers, unassignCourse, getCourseAssignmentsAdminList } from '@/services/courseAssignmentService';
-import type { CourseAssignmentAdminRow } from '@/types/courses';
+import type { CourseAssignmentAdminRow, CourseType } from '@/types/courses';
 
 const DEBOUNCE_MS = 300;
 const SEARCH_LIMIT = 10;
@@ -61,6 +61,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 interface CourseAssignmentsProps {
   courseId: string;
+  courseType: CourseType;
   assignments: CourseAssignmentAdminRow[];
   onUpdate: () => void;
 }
@@ -74,7 +75,7 @@ function useDebouncedValue<T>(value: T, delayMs: number): T {
   return debounced;
 }
 
-export function CourseAssignments({ courseId, assignments, onUpdate }: CourseAssignmentsProps) {
+export function CourseAssignments({ courseId, courseType, assignments, onUpdate }: CourseAssignmentsProps) {
   const { user } = useAuth();
   const [profiles, setProfiles] = useState<ProfileOption[]>([]);
   const [departments, setDepartments] = useState<string[]>([]);
@@ -172,8 +173,18 @@ export function CourseAssignments({ courseId, assignments, onUpdate }: CourseAss
   const handleAssignSelected = async () => {
     if (selectedAvailable.length === 0 || !user?.id) return;
     setAssigning(true);
+    const userIds = selectedAvailable.map((p) => p.id);
     try {
-      await assignCourseToUsers(courseId, selectedAvailable.map((p) => p.id), user.id);
+      await assignCourseToUsers(courseId, userIds, user.id);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        for (const userId of userIds) {
+          await supabase.functions.invoke('send-mandatory-course-email', {
+            body: { user_id: userId, course_id: courseId },
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          });
+        }
+      }
       toast.success(
         selectedAvailable.length === 1
           ? 'Colaborador atribuído.'
@@ -192,8 +203,18 @@ export function CourseAssignments({ courseId, assignments, onUpdate }: CourseAss
     if (availableProfiles.length === 0 || !user?.id) return;
     setAssigning(true);
     setAssignAllConfirmOpen(false);
+    const userIds = availableProfiles.map((p) => p.id);
     try {
-      await assignCourseToUsers(courseId, availableProfiles.map((p) => p.id), user.id);
+      await assignCourseToUsers(courseId, userIds, user.id);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        for (const userId of userIds) {
+          await supabase.functions.invoke('send-mandatory-course-email', {
+            body: { user_id: userId, course_id: courseId },
+            headers: { Authorization: `Bearer ${session.access_token}` },
+          });
+        }
+      }
       toast.success(
         availableProfiles.length === 1
           ? 'Colaborador atribuído.'

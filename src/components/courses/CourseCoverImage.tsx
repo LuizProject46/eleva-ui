@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { GraduationCap } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -10,10 +11,21 @@ interface CourseCoverImageProps {
   isLoading?: boolean;
 }
 
+function Placeholder({ aspectClass, className }: { aspectClass: string; className: string }) {
+  return (
+    <div
+      className={`${aspectClass} w-full bg-muted flex items-center justify-center rounded-lg ${className}`}
+      aria-hidden
+    >
+      <GraduationCap className="w-10 h-10 text-muted-foreground/50 md:w-12 md:h-12" />
+    </div>
+  );
+}
+
 /**
  * Renders course cover image or a placeholder when no cover.
  * Use with signed URL from useCourseCoverUrl(coverPath).
- * Add loading="lazy" for native lazy loading when URL is available.
+ * On load error, falls back to placeholder to avoid broken image.
  */
 export function CourseCoverImage({
   coverUrl,
@@ -22,7 +34,12 @@ export function CourseCoverImage({
   aspectRatio = 'video',
   isLoading = false,
 }: CourseCoverImageProps) {
+  const [hasError, setHasError] = useState(false);
   const aspectClass = aspectRatio === 'video' ? 'aspect-video' : 'aspect-square';
+
+  useEffect(() => {
+    setHasError(false);
+  }, [coverUrl]);
 
   if (isLoading) {
     return (
@@ -33,15 +50,8 @@ export function CourseCoverImage({
     );
   }
 
-  if (!coverUrl) {
-    return (
-      <div
-        className={`${aspectClass} w-full bg-muted flex items-center justify-center rounded-lg ${className}`}
-        aria-hidden
-      >
-        <GraduationCap className="w-10 h-10 text-muted-foreground/50 md:w-12 md:h-12" />
-      </div>
-    );
+  if (!coverUrl || hasError) {
+    return <Placeholder aspectClass={aspectClass} className={className} />;
   }
 
   return (
@@ -51,6 +61,7 @@ export function CourseCoverImage({
       loading="lazy"
       decoding="async"
       className={`${aspectClass} w-full object-cover rounded-lg ${className}`}
+      onError={() => setHasError(true)}
     />
   );
 }

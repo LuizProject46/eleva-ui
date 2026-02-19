@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { cn } from '@/lib/utils';
 
-function getNotificationLink(type: string): string {
+function getNotificationLink(type: string, relatedId: string | null): string {
   if (type === 'assessment_period_reminder') return '/assessment';
+  if (type === 'mandatory_course_assigned' || type === 'course_assigned') return '/courses';
   return '/evaluation';
 }
 
@@ -50,7 +51,7 @@ export function NotificationBell() {
               {displayList.map((n) => (
                 <li key={n.id}>
                   <Link
-                    to={getNotificationLink(n.type)}
+                    to={getNotificationLink(n.type, n.related_id)}
                     onClick={() => markAsRead(n.id)}
                     className={cn(
                       "block px-4 py-3 text-left hover:bg-muted/50 transition-colors",

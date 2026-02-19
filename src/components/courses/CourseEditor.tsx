@@ -352,6 +352,7 @@ export function CourseEditor({ courseId, onClose, onSaved }: CourseEditorProps) 
         <TabsContent value="assignments" className="space-y-4">
           <CourseAssignments
             courseId={courseId}
+            courseType={course.type}
             assignments={assignments}
             onUpdate={refreshAssignments}
           />

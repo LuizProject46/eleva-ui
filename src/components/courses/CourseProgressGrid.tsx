@@ -42,6 +42,12 @@ const STATUS_LABELS: Record<string, string> = {
   completed: 'Concluído',
 };
 
+/** Approval status labels (approved when score >= course passing_score; otherwise failed). */
+const APPROVAL_LABELS: Record<string, string> = {
+  approved: 'Aprovado',
+  failed: 'Reprovado',
+};
+
 function formatCompletedAt(value: string | null): string {
   if (!value) return '—';
   try {
@@ -275,6 +281,8 @@ export function CourseProgressGrid() {
                     <TableHead className="hidden md:table-cell">Cargo</TableHead>
                     <TableHead>Curso</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead className="whitespace-nowrap">Aprovação</TableHead>
+                    <TableHead className="text-center whitespace-nowrap">Pontuação</TableHead>
                     <TableHead className="text-right">Progresso</TableHead>
                     <TableHead className="hidden md:table-cell text-center">Etapas</TableHead>
                     <TableHead className="hidden lg:table-cell">Concluído em</TableHead>
@@ -306,6 +314,22 @@ export function CourseProgressGrid() {
                         >
                           {STATUS_LABELS[row.status] ?? row.status}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {row.approval_status ? (
+                          <Badge
+                            variant={row.approval_status === 'approved' ? 'default' : 'destructive'}
+                          >
+                            {APPROVAL_LABELS[row.approval_status] ?? row.approval_status}
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center tabular-nums text-muted-foreground">
+                        {row.score_correct != null && row.score_total != null
+                          ? `${row.score_correct}/${row.score_total}`
+                          : '—'}
                       </TableCell>
                       <TableCell className="text-right">
                         <CircleProgressBar value={row.progress_pct} />
