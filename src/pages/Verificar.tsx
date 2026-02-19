@@ -80,7 +80,7 @@ export default function Verificar() {
                 <Input
                   id="certificate-code"
                   type="text"
-                  placeholder="Ex.: ELEVA-XXXXXXXXXX"
+                  placeholder="Ex.: código do certificado"
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                   className="font-mono"

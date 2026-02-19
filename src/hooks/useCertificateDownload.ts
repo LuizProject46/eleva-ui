@@ -117,7 +117,7 @@ export function useCertificateDownload() {
         brand.logoUrl
       );
       const payload = await certificateToPayload(cert, branding);
-      const blob = buildCertificatePdf(payload);
+      const blob = await buildCertificatePdf(payload);
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -158,7 +158,7 @@ export function useCertificateDownload() {
         brand.logoUrl
       );
       const payload = await certificateToPayload(cert, branding);
-      const blob = buildCertificatePdf(payload);
+      const blob = await buildCertificatePdf(payload);
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;

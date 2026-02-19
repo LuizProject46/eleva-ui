@@ -9,6 +9,14 @@ import type {
   CertificateVerificationRow,
 } from '@/types/courses';
 
+/** New certificate codes are 10 uppercase hex chars (no ELEVA- prefix). Legacy codes may still start with ELEVA-. */
+export const NEW_CERTIFICATE_CODE_REGEX = /^[0-9A-F]{10}$/;
+
+/** Returns true if the code matches the new format (10 hex chars, no prefix). Legacy ELEVA- codes return false. */
+export function isNewFormatCertificateCode(code: string): boolean {
+  return NEW_CERTIFICATE_CODE_REGEX.test(code?.trim() ?? '');
+}
+
 export async function getCertificateById(certificateId: string): Promise<Certificate | null> {
   const { data, error } = await supabase
     .from('certificates')

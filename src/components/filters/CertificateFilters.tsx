@@ -129,7 +129,7 @@ export function CertificateFilters({
               <Label className="text-sm text-muted-foreground">Código do certificado</Label>
               <Input
                 type="search"
-                placeholder="Ex.: ELEVA-..."
+                placeholder="Ex.: código do certificado"
                 value={draftCertificateCode}
                 onChange={(e) => setDraftCertificateCode(e.target.value)}
                 className="h-9 w-full font-mono text-sm"
