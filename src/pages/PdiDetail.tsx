@@ -204,7 +204,12 @@ export default function PdiDetail() {
             <p className="text-sm font-medium text-foreground">Progresso</p>
             {objectives.length > 0 && (
               <p className="text-sm text-muted-foreground">
-                Objetivos: {objectives.filter((o) => o.status === 'completed').length} de {objectives.length} concluídos
+                Objetivos:{' '}
+                {objectives.filter((o) => {
+                  const objActions = actions.filter((a) => a.pdi_objective_id === o.id);
+                  return objActions.length > 0 && objActions.every((a) => a.status === 'completed');
+                }).length}{' '}
+                de {objectives.length} concluídos
               </p>
             )}
             {progress && progress.total > 0 && (

@@ -30,7 +30,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { ChevronDown, Plus, Pencil, Trash2 } from 'lucide-react';
+import { ChevronDown, Plus, Pencil, Trash2, BookOpen, Target } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   createObjective,
@@ -40,8 +40,10 @@ import {
   updateAction,
   deleteAction,
   updateActionStatus,
+  updateActionProgress,
 } from '@/services/pdiService';
 import type { Pdi, PdiObjective, PdiAction, PdiObjectiveStatus } from '@/types/pdi';
+import { Progress } from '@/components/ui/progress';
 import { AsyncSearchCombobox } from '@/components/async/AsyncSearchCombobox';
 import type { AsyncSearchOption } from '@/components/async/AsyncSearchCombobox';
 import { useAuth } from '@/contexts/AuthContext';
@@ -69,6 +71,18 @@ const ACTION_STATUS_LABELS: Record<string, string> = {
   completed: 'Concluída',
 };
 
+function computeGoalProgress(actions: PdiAction[]): { progress_pct: number; status: PdiObjectiveStatus } {
+  if (actions.length === 0) {
+    return { progress_pct: 0, status: 'not_started' };
+  }
+  const sum = actions.reduce((acc, a) => acc + (a.progress_pct ?? 0), 0);
+  const progress_pct = Math.round((sum / actions.length) * 10) / 10;
+  const allCompleted = actions.every((a) => a.status === 'completed');
+  const status: PdiObjectiveStatus =
+    allCompleted && progress_pct >= 100 ? 'completed' : progress_pct > 0 ? 'in_progress' : 'not_started';
+  return { progress_pct: Math.min(100, progress_pct), status };
+}
+
 interface PdiObjectivesSectionProps {
   pdi: Pdi;
   objectives: PdiObjective[];
@@ -78,6 +92,7 @@ interface PdiObjectivesSectionProps {
 }
 
 export function PdiObjectivesSection({ pdi, objectives, actions, onUpdate, canManage }: PdiObjectivesSectionProps) {
+  const { user } = useAuth();
   const [openObjectiveId, setOpenObjectiveId] = useState<string | null>(null);
   const [objectiveDialog, setObjectiveDialog] = useState<'add' | 'edit' | null>(null);
   const [actionDialog, setActionDialog] = useState<{ objectiveId: string } | null>(null);
@@ -86,6 +101,8 @@ export function PdiObjectivesSection({ pdi, objectives, actions, onUpdate, canMa
 
   const canEdit =
     canManage && (pdi.status === 'draft' || pdi.status === 'in_approval' || pdi.status === 'active');
+
+  const isEmployeeViewingOwn = !canManage && pdi.employee_id === user?.id;
 
   const actionsByObjective = actions.reduce<Record<string, PdiAction[]>>((acc, a) => {
     if (!acc[a.pdi_objective_id]) acc[a.pdi_objective_id] = [];
@@ -136,7 +153,7 @@ export function PdiObjectivesSection({ pdi, objectives, actions, onUpdate, canMa
             const completedCount = objActions.filter((a) => a.status === 'completed').length;
             const totalCount = objActions.length;
             const completedActions = objActions.filter((a) => a.status === 'completed');
-            const objStatus = obj.status ?? 'not_started';
+            const { progress_pct: goalProgressPct, status: objStatus } = computeGoalProgress(objActions);
             return (
             <Collapsible
               key={obj.id}
@@ -168,6 +185,15 @@ export function PdiObjectivesSection({ pdi, objectives, actions, onUpdate, canMa
                           </span>
                         )}
                       </div>
+                      {totalCount > 0 && (
+                        <div className="mb-2">
+                          <div className="flex justify-between text-xs text-muted-foreground mb-0.5">
+                            <span>Progresso calculado a partir dos planos de ação</span>
+                            <span>{goalProgressPct}%</span>
+                          </div>
+                          <Progress value={goalProgressPct} className="h-2" />
+                        </div>
+                      )}
                       <p className="font-medium text-foreground">{obj.description}</p>
                       <p className="text-sm text-muted-foreground mt-0.5">
                         {obj.competency && `Competência: ${obj.competency} · `}
@@ -228,7 +254,9 @@ export function PdiObjectivesSection({ pdi, objectives, actions, onUpdate, canMa
                       </div>
                     )}
                     {(actionsByObjective[obj.id]?.length ?? 0) === 0 ? (
-                      <p className="text-sm text-muted-foreground mb-2">Nenhum plano de ação.</p>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Nenhum plano de ação. Adicione um plano de ação para começar.
+                      </p>
                     ) : (
                       <Table>
                         <TableHeader>
@@ -237,6 +265,7 @@ export function PdiObjectivesSection({ pdi, objectives, actions, onUpdate, canMa
                             <TableHead>Tipo</TableHead>
                             <TableHead>Responsável</TableHead>
                             <TableHead>Prazo</TableHead>
+                            <TableHead>Progresso</TableHead>
                             <TableHead>Status</TableHead>
                             {canEdit && <TableHead className="w-[80px]">Ações</TableHead>}
                           </TableRow>
@@ -247,10 +276,24 @@ export function PdiObjectivesSection({ pdi, objectives, actions, onUpdate, canMa
                               key={action.id}
                               action={action}
                               canEdit={canEdit}
+                              canUpdatePracticeProgress={
+                                canEdit || (isEmployeeViewingOwn && action.responsible_user_id === user?.id)
+                              }
                               onStatusChange={async (status) => {
                                 await updateActionStatus(action.id, status);
                                 onUpdate();
                               }}
+                              onProgressChange={
+                                action.type === 'practice'
+                                  ? async (progress_pct, status) => {
+                                      await updateActionProgress(action.id, {
+                                        progress_pct,
+                                        ...(status !== undefined && { status }),
+                                      });
+                                      onUpdate();
+                                    }
+                                  : undefined
+                              }
                               onDelete={async () => {
                                 await deleteAction(action.id);
                                 toast.success('Ação excluída.');
@@ -316,15 +359,22 @@ export function PdiObjectivesSection({ pdi, objectives, actions, onUpdate, canMa
 function PdiActionRow({
   action,
   canEdit,
+  canUpdatePracticeProgress,
   onStatusChange,
+  onProgressChange,
   onDelete,
 }: {
   action: PdiAction;
   canEdit: boolean;
+  canUpdatePracticeProgress: boolean;
   onStatusChange: (status: PdiAction['status']) => Promise<void>;
+  onProgressChange?: (progress_pct: number, status?: PdiAction['status']) => Promise<void>;
   onDelete: () => Promise<void>;
 }) {
   const [authorName, setAuthorName] = useState<string>('');
+  const [isUpdating, setIsUpdating] = useState(false);
+  const progressPct = action.progress_pct ?? 0;
+  const isCourse = action.type === 'course';
 
   useEffect(() => {
     supabase.from('profiles').select('name').eq('id', action.responsible_user_id).maybeSingle().then(({ data }) => {
@@ -332,17 +382,101 @@ function PdiActionRow({
     });
   }, [action.responsible_user_id]);
 
+  const handleProgressQuick = async (delta: number) => {
+    if (!onProgressChange || isCourse) return;
+    const next = Math.min(100, Math.max(0, progressPct + delta));
+    setIsUpdating(true);
+    try {
+      await onProgressChange(next, next >= 100 ? 'completed' : 'in_progress');
+      toast.success('Progresso atualizado.');
+    } catch {
+      toast.error('Erro ao atualizar.');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   return (
     <TableRow>
       <TableCell className="font-medium">{action.description}</TableCell>
-      <TableCell>{ACTION_TYPE_LABELS[action.type] ?? action.type}</TableCell>
+      <TableCell>
+        <span className="inline-flex items-center gap-1.5">
+          {isCourse ? (
+            <BookOpen className="w-4 h-4 text-muted-foreground" aria-hidden />
+          ) : (
+            <Target className="w-4 h-4 text-muted-foreground" aria-hidden />
+          )}
+          {ACTION_TYPE_LABELS[action.type] ?? action.type}
+        </span>
+      </TableCell>
       <TableCell>{authorName || action.responsible_user_id}</TableCell>
       <TableCell>{action.due_date ? new Date(action.due_date).toLocaleDateString('pt-BR') : '—'}</TableCell>
-      <TableCell>
-        {action.type === 'course' && action.status === 'completed' && (
-          <span className="text-xs text-muted-foreground">Concluído pelo curso</span>
+      <TableCell className="min-w-[100px]">
+        {isCourse ? (
+          <div className="flex flex-col gap-0.5">
+            <Progress value={progressPct} className="h-2 w-24" />
+            <span className="text-xs text-muted-foreground">Sincronizado com o curso</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <Progress value={progressPct} className="h-2 flex-1 min-w-0 max-w-28" />
+            <span className="text-sm tabular-nums shrink-0">{progressPct}%</span>
+            {canUpdatePracticeProgress && onProgressChange && (
+              <div className="flex gap-0.5 shrink-0">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-1.5 text-xs"
+                  disabled={isUpdating || progressPct >= 100}
+                  onClick={() => void handleProgressQuick(10)}
+                >
+                  +10%
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-1.5 text-xs"
+                  disabled={isUpdating || progressPct >= 100}
+                  onClick={async () => {
+                    if (!onProgressChange) return;
+                    setIsUpdating(true);
+                    try {
+                      await onProgressChange(100, 'completed');
+                      toast.success('Marcado como concluída.');
+                    } finally {
+                      setIsUpdating(false);
+                    }
+                  }}
+                >
+                  Concluir
+                </Button>
+              </div>
+            )}
+          </div>
         )}
-        {canEdit && !(action.type === 'course' && action.status === 'completed') ? (
+      </TableCell>
+      <TableCell>
+        {isCourse ? (
+          <span className="text-xs text-muted-foreground">
+            {action.status === 'completed' ? 'Concluído pelo curso' : ACTION_STATUS_LABELS[action.status]}
+          </span>
+        ) : canEdit ? (
+          <Select
+            value={action.status}
+            onValueChange={(v) => void onStatusChange(v as PdiAction['status'])}
+          >
+            <SelectTrigger className="w-[140px] h-8">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(ACTION_STATUS_LABELS).map(([k, v]) => (
+                <SelectItem key={k} value={k}>{v}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : canUpdatePracticeProgress ? (
           <Select
             value={action.status}
             onValueChange={(v) => void onStatusChange(v as PdiAction['status'])}
@@ -388,7 +522,6 @@ function ObjectiveDialog({
   const [competency, setCompetency] = useState('');
   const [priority, setPriority] = useState<string>('');
   const [dueDate, setDueDate] = useState('');
-  const [status, setStatus] = useState<PdiObjectiveStatus>('not_started');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const open = mode !== null;
@@ -400,13 +533,11 @@ function ObjectiveDialog({
       setCompetency(editing.competency ?? '');
       setPriority(editing.priority ?? '');
       setDueDate(editing.due_date ?? '');
-      setStatus((editing.status as PdiObjectiveStatus) ?? 'not_started');
     } else if (open && !isEdit) {
       setDescription('');
       setCompetency('');
       setPriority('');
       setDueDate('');
-      setStatus('not_started');
     }
   }, [open, isEdit, editing]);
 
@@ -424,7 +555,6 @@ function ObjectiveDialog({
           competency: competency.trim() || null,
           priority: (priority as PdiObjective['priority']) || null,
           due_date: dueDate || null,
-          status,
         });
         toast.success('Objetivo atualizado.');
       } else {
@@ -435,7 +565,6 @@ function ObjectiveDialog({
           priority: (priority as PdiObjective['priority']) || null,
           due_date: dueDate || null,
           position: 0,
-          status,
         });
         toast.success('Objetivo criado.');
       }
@@ -473,19 +602,9 @@ function ObjectiveDialog({
               onChange={(e) => setCompetency(e.target.value)}
             />
           </div>
-          <div className="space-y-2">
-            <Label>Status do objetivo</Label>
-            <Select value={status} onValueChange={(v) => setStatus(v as PdiObjectiveStatus)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.entries(OBJECTIVE_STATUS_LABELS) as [PdiObjectiveStatus, string][]).map(([k, v]) => (
-                  <SelectItem key={k} value={k}>{v}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <p className="text-xs text-muted-foreground">
+            O progresso do objetivo é calculado automaticamente a partir dos planos de ação.
+          </p>
           <div className="space-y-2">
             <Label>Prioridade</Label>
             <Select value={priority} onValueChange={setPriority}>

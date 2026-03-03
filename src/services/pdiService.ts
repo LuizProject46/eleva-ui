@@ -10,6 +10,8 @@ import type {
   PdiAction,
   PdiCheckin,
   PdiProgress,
+  PdiGoalProgress,
+  PdiActionProgress,
   PdiInsert,
   PdiObjectiveInsert,
   PdiActionInsert,
@@ -19,9 +21,9 @@ import type {
 
 const PDI_COLS =
   'id, tenant_id, employee_id, start_date, end_date, origin, evaluation_id, behavioral_assessment_id, status, closed_at, result, close_comment, created_by, created_at, updated_at';
-const OBJECTIVE_COLS = 'id, pdi_id, description, competency, priority, due_date, position, status';
+const OBJECTIVE_COLS = 'id, pdi_id, description, competency, priority, due_date, position';
 const ACTION_COLS =
-  'id, pdi_objective_id, description, type, responsible_user_id, due_date, status, course_assignment_id, created_at, updated_at';
+  'id, pdi_objective_id, description, type, responsible_user_id, due_date, status, progress_pct, course_assignment_id, completion_criteria, created_at, updated_at';
 const CHECKIN_COLS =
   'id, pdi_id, checkin_date, overall_status, manager_comment, employee_comment, author_id, created_at';
 
@@ -137,7 +139,6 @@ export async function createObjective(payload: PdiObjectiveInsert): Promise<PdiO
       priority: payload.priority ?? null,
       due_date: payload.due_date ?? null,
       position: payload.position ?? 0,
-      status: payload.status ?? 'not_started',
     })
     .select(OBJECTIVE_COLS)
     .single();
@@ -147,7 +148,7 @@ export async function createObjective(payload: PdiObjectiveInsert): Promise<PdiO
 
 export async function updateObjective(
   objectiveId: string,
-  updates: Partial<Pick<PdiObjective, 'description' | 'competency' | 'priority' | 'due_date' | 'position' | 'status'>>
+  updates: Partial<Pick<PdiObjective, 'description' | 'competency' | 'priority' | 'due_date' | 'position'>>
 ): Promise<PdiObjective> {
   const { data, error } = await supabase
     .from('pdi_objectives')
@@ -192,6 +193,7 @@ export async function createAction(payload: PdiActionInsert): Promise<PdiAction>
       responsible_user_id: payload.responsible_user_id,
       due_date: payload.due_date ?? null,
       course_assignment_id: payload.course_assignment_id ?? null,
+      completion_criteria: payload.completion_criteria ?? null,
     })
     .select(ACTION_COLS)
     .single();
@@ -201,7 +203,7 @@ export async function createAction(payload: PdiActionInsert): Promise<PdiAction>
 
 export async function updateAction(
   actionId: string,
-  updates: Partial<Pick<PdiAction, 'description' | 'type' | 'responsible_user_id' | 'due_date' | 'status' | 'course_assignment_id'>>
+  updates: Partial<Pick<PdiAction, 'description' | 'type' | 'responsible_user_id' | 'due_date' | 'status' | 'progress_pct' | 'course_assignment_id' | 'completion_criteria'>>
 ): Promise<PdiAction> {
   const { data, error } = await supabase
     .from('pdi_actions')
@@ -215,6 +217,39 @@ export async function updateAction(
 
 export async function updateActionStatus(actionId: string, status: PdiAction['status']): Promise<PdiAction> {
   return updateAction(actionId, { status });
+}
+
+/** Update progress for practice actions only (employee or manager/HR). */
+export async function updateActionProgress(
+  actionId: string,
+  updates: { progress_pct?: number; status?: PdiAction['status'] }
+): Promise<PdiAction> {
+  return updateAction(actionId, updates);
+}
+
+export async function getPdiGoalProgress(objectiveId: string): Promise<PdiGoalProgress | null> {
+  const { data, error } = await supabase.rpc('get_pdi_goal_progress', { p_objective_id: objectiveId });
+  if (error) throw error;
+  const row = Array.isArray(data) && data.length > 0 ? data[0] : null;
+  if (!row) return null;
+  return {
+    objective_id: row.objective_id,
+    progress_pct: Number(row.progress_pct ?? 0),
+    status: row.status ?? 'not_started',
+  };
+}
+
+export async function getPdiActionProgress(actionId: string): Promise<PdiActionProgress | null> {
+  const { data, error } = await supabase.rpc('get_pdi_action_progress', { p_action_id: actionId });
+  if (error) throw error;
+  const row = Array.isArray(data) && data.length > 0 ? data[0] : null;
+  if (!row) return null;
+  return {
+    action_id: row.action_id,
+    progress_pct: Number(row.progress_pct ?? 0),
+    status: row.status ?? 'pending',
+    is_from_course: Boolean(row.is_from_course),
+  };
 }
 
 export async function deleteAction(actionId: string): Promise<void> {

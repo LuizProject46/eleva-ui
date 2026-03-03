@@ -37,6 +37,12 @@ export interface PdiObjective {
   priority: PdiPriority | null;
   due_date: string | null;
   position: number;
+}
+
+/** Goal progress and status are computed from action plans (get_pdi_goal_progress). */
+export interface PdiGoalProgress {
+  objective_id: string;
+  progress_pct: number;
   status: PdiObjectiveStatus;
 }
 
@@ -48,9 +54,19 @@ export interface PdiAction {
   responsible_user_id: string;
   due_date: string | null;
   status: PdiActionStatus;
+  progress_pct: number;
   course_assignment_id: string | null;
+  completion_criteria: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/** Action progress from get_pdi_action_progress (course = live from course, practice = stored). */
+export interface PdiActionProgress {
+  action_id: string;
+  progress_pct: number;
+  status: PdiActionStatus;
+  is_from_course: boolean;
 }
 
 export interface PdiCheckin {
@@ -88,7 +104,6 @@ export interface PdiObjectiveInsert {
   priority?: PdiPriority | null;
   due_date?: string | null;
   position?: number;
-  status?: PdiObjectiveStatus;
 }
 
 export interface PdiActionInsert {
@@ -98,6 +113,7 @@ export interface PdiActionInsert {
   responsible_user_id: string;
   due_date?: string | null;
   course_assignment_id?: string | null;
+  completion_criteria?: string | null;
 }
 
 export interface PdiCheckinInsert {
@@ -118,6 +134,6 @@ export interface PdiCheckinUpdate {
 
 export interface PdiWithRelations extends Pdi {
   employee?: { id: string; name: string; email: string } | null;
-  objectives?: (PdiObjective & { actions?: PdiAction[] })[];
+  objectives?: (PdiObjective & { actions?: PdiAction[]; goalProgress?: PdiGoalProgress })[];
   progress?: PdiProgress | null;
 }
