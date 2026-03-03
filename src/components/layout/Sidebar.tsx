@@ -32,6 +32,7 @@ const employeeNavItems = [
   { icon: UserCheck, label: 'Avaliação/Feedback', path: '/evaluation' },
   { icon: Users, label: 'Mentoria', path: '/mentoring' },
   { icon: Brain, label: 'Teste Comportamental', path: '/assessment' },
+  { icon: ClipboardList, label: 'PDI', path: '/pdis' },
 ];
 
 const managerNavItems = [
@@ -42,6 +43,7 @@ const managerNavItems = [
   { icon: UserCheck, label: 'Avaliações', path: '/evaluation' },
   { icon: Users, label: 'Mentorias', path: '/mentoring' },
   { icon: Brain, label: 'Teste Comportamental', path: '/assessment' },
+  { icon: ClipboardList, label: 'PDI', path: '/pdis' },
   { icon: UserPlus, label: 'Minha Equipe', path: '/employees' },
 ];
 
@@ -52,6 +54,7 @@ const hrNavItems = [
   { icon: UserCheck, label: 'Avaliações', path: '/evaluation' },
   { icon: Users, label: 'Mentorias', path: '/mentoring' },
   { icon: Brain, label: 'Teste Comportamental', path: '/assessment' },
+  { icon: ClipboardList, label: 'PDI', path: '/pdis' },
   { icon: UserPlus, label: 'Colaboradores', path: '/employees' },
 ];
 

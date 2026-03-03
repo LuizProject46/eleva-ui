@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useAuth, UserRole } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -26,7 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Users, UserPlus, ArrowUpDown, ArrowUp, ArrowDown, Pencil, Trash2, Upload } from 'lucide-react';
+import { Users, UserPlus, ArrowUpDown, ArrowUp, ArrowDown, Pencil, Trash2, Upload, User } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Pagination,
@@ -730,7 +731,12 @@ export default function Colaboradores() {
                               name={p.name}
                               size="sm"
                             />
-                            <span className="font-medium">{p.name}</span>
+                            <Link
+                              to={`/employees/${p.id}`}
+                              className="font-medium text-primary hover:underline"
+                            >
+                              {p.name}
+                            </Link>
                           </div>
                         </TableCell>
                         <TableCell>{p.email}</TableCell>
@@ -742,6 +748,16 @@ export default function Colaboradores() {
                         <TableCell>{p.is_active !== false ? 'Ativo' : 'Inativo'}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              asChild
+                              aria-label="Ver perfil"
+                            >
+                              <Link to={`/employees/${p.id}`}>
+                                <User className="h-4 w-4" />
+                              </Link>
+                            </Button>
                             {canEditUser(p) && (
                               <Button
                                 type="button"

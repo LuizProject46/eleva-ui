@@ -17,6 +17,9 @@ import Evaluation from "@/pages/Evaluation";
 import Mentoring from "@/pages/Mentoring";
 import Assessment from "@/pages/Assessment";
 import Colaboradores from "@/pages/Colaboradores";
+import EmployeeProfile from "@/pages/EmployeeProfile";
+import PdiList from "@/pages/PdiList";
+import PdiDetail from "@/pages/PdiDetail";
 import Courses from "@/pages/Courses";
 import CourseQuestionnaire from "@/pages/CourseQuestionnaire";
 import CourseProgress from "@/pages/CourseProgress";
@@ -94,6 +97,9 @@ function AppRoutes() {
       <Route path="/mentoring" element={<ProtectedRoute><Mentoring /></ProtectedRoute>} />
       <Route path="/assessment" element={<ProtectedRoute><Assessment /></ProtectedRoute>} />
       <Route path="/employees" element={<ProtectedRoute><Colaboradores /></ProtectedRoute>} />
+      <Route path="/employees/:userId" element={<ProtectedRoute><EmployeeProfile /></ProtectedRoute>} />
+      <Route path="/pdis" element={<ProtectedRoute><PdiList /></ProtectedRoute>} />
+      <Route path="/pdis/:pdiId" element={<ProtectedRoute><PdiDetail /></ProtectedRoute>} />
       <Route path="/courses" element={<ProtectedRoute><Courses /></ProtectedRoute>} />
       <Route path="/courses/assignment/:assignmentId/questionnaire" element={<ProtectedRoute><CourseQuestionnaire /></ProtectedRoute>} />
       <Route path="/courses/assignment/:assignmentId/start" element={<ProtectedRoute><CourseProgress /></ProtectedRoute>} />
