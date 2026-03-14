@@ -30,7 +30,7 @@ const employeeNavItems = [
   { icon: GraduationCap, label: 'Meus Cursos', path: '/courses' },
   { icon: Award, label: 'Certificados', path: '/certificates' },
   { icon: UserCheck, label: 'Avaliação/Feedback', path: '/evaluation' },
-  { icon: Users, label: 'Mentoria', path: '/mentoring' },
+  // { icon: Users, label: 'Mentoria', path: '/mentoring' },
   { icon: Brain, label: 'Teste Comportamental', path: '/assessment' },
   { icon: ClipboardList, label: 'PDI', path: '/pdis' },
 ];
