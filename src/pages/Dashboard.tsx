@@ -12,6 +12,7 @@ import {
   useCloseToDeadlineActionPlans,
   useRecentActivity,
   useEmployeePdiSummary,
+  useEvaluationCounts,
 } from '@/hooks/useDashboardMetrics';
 import type { DashboardRecentActivityItem } from '@/types/dashboard';
 import {
@@ -23,6 +24,9 @@ import {
   FileText,
   Clock,
   CalendarClock,
+  MessageSquare,
+  Send,
+  UserCircle,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -128,6 +132,7 @@ export default function Dashboard() {
   const closeToDeadlineActionPlans = useCloseToDeadlineActionPlans();
   const recentActivity = useRecentActivity();
   const employeePdiSummary = useEmployeePdiSummary();
+  const evaluationCounts = useEvaluationCounts();
 
   return (
     <MainLayout>
@@ -242,6 +247,63 @@ export default function Dashboard() {
               )}
             </div>
 
+            {/* Avaliações e Feedbacks (HR / Manager) — between totals and PDIs resume */}
+            <div className="card-elevated p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-lg font-display font-semibold text-foreground">
+                  Avaliações e Feedbacks
+                </h2>
+                <Link
+                  to="/evaluation"
+                  className="text-sm text-primary hover:underline flex items-center gap-1"
+                >
+                  Ver todas
+                  <ChevronRight className="w-4 h-4" />
+                </Link>
+              </div>
+              {evaluationCounts.isLoading && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[1, 2, 3, 4].map((i) => (
+                    <StatCardSkeleton key={i} />
+                  ))}
+                </div>
+              )}
+              {evaluationCounts.error && (
+                <div className="flex flex-col gap-2">
+                  <p className="text-sm text-destructive">{evaluationCounts.error}</p>
+                  <Button variant="outline" size="sm" onClick={evaluationCounts.refetch}>
+                    Tentar novamente
+                  </Button>
+                </div>
+              )}
+              {!evaluationCounts.isLoading &&
+                !evaluationCounts.error &&
+                evaluationCounts.data && (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <StatCard
+                      title="Recebidas"
+                      value={evaluationCounts.data.received}
+                      icon={<MessageSquare className="w-6 h-6" />}
+                    />
+                    <StatCard
+                      title="Enviadas"
+                      value={evaluationCounts.data.sent}
+                      icon={<Send className="w-6 h-6" />}
+                    />
+                    <StatCard
+                      title="Autoavaliações"
+                      value={evaluationCounts.data.self}
+                      icon={<UserCircle className="w-6 h-6" />}
+                    />
+                    <StatCard
+                      title={isHR() ? 'Autoavaliações da empresa' : 'Autoavaliações da equipe'}
+                      value={evaluationCounts.data.teamSelf}
+                      icon={<Users className="w-6 h-6" />}
+                    />
+                  </div>
+                )}
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2 card-elevated p-6">
                 <div className="flex items-center justify-between mb-6">
@@ -303,6 +365,58 @@ export default function Dashboard() {
         ) : (
           /* Employee (Collaborator) Dashboard */
           <>
+            {/* Avaliações e Feedbacks (Employee) — between totals and PDIs resume */}
+            <div className="card-elevated p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-display font-semibold text-foreground">
+                  Avaliações e Feedbacks
+                </h2>
+                <Link
+                  to="/evaluation"
+                  className="text-sm text-primary hover:underline flex items-center gap-1"
+                >
+                  Ver todas
+                  <ChevronRight className="w-4 h-4" />
+                </Link>
+              </div>
+              {evaluationCounts.isLoading && (
+                <div className="grid grid-cols-3 gap-3">
+                  <StatCardSkeleton />
+                  <StatCardSkeleton />
+                  <StatCardSkeleton />
+                </div>
+              )}
+              {evaluationCounts.error && (
+                <div className="flex flex-col gap-2">
+                  <p className="text-sm text-destructive">{evaluationCounts.error}</p>
+                  <Button variant="outline" size="sm" onClick={evaluationCounts.refetch}>
+                    Tentar novamente
+                  </Button>
+                </div>
+              )}
+              {!evaluationCounts.isLoading &&
+                !evaluationCounts.error &&
+                evaluationCounts.data && (
+                  <div className="grid grid-cols-3 gap-3">
+                    <StatCard
+                      title="Recebidas"
+                      value={evaluationCounts.data.received}
+                      icon={<MessageSquare className="w-5 h-5" />}
+                    />
+                    <StatCard
+                      title="Enviadas"
+                      value={evaluationCounts.data.sent}
+                      icon={<Send className="w-5 h-5" />}
+                    />
+                    <StatCard
+                      title="Autoavaliações"
+                      value={evaluationCounts.data.self}
+                      icon={<UserCircle className="w-5 h-5" />}
+                    />
+                  </div>
+                )}
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2 card-elevated p-6">
                 <div className="flex items-center justify-between mb-6">

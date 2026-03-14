@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import type {
   DashboardRecentActivityItem,
   DashboardEmployeeMetrics,
+  DashboardEvaluationCounts,
 } from '@/types/dashboard';
 
 const CLOSE_TO_DEADLINE_DAYS = 7;
@@ -227,5 +228,52 @@ export async function getEmployeePdiSummary(): Promise<DashboardEmployeeMetrics>
     totalActionPlans: totalRes.count ?? 0,
     overdueActionPlans: overdueRes.count ?? 0,
     closeToDeadlineActionPlans: closeRes.count ?? 0,
+  };
+}
+
+/**
+ * Evaluation counts for dashboard (aligned with Evaluation page).
+ * All counts use submitted evaluations only; RLS enforces tenant and role.
+ */
+export async function getEvaluationCounts(): Promise<DashboardEvaluationCounts> {
+  const userId = await getCurrentUserId();
+
+  const [receivedRes, sentRes, selfRes, teamSelfRes] = await Promise.all([
+    supabase
+      .from('evaluations')
+      .select('id', { count: 'exact', head: true })
+      .eq('evaluated_id', userId)
+      .eq('status', 'submitted')
+      .neq('type', 'self'),
+    supabase
+      .from('evaluations')
+      .select('id', { count: 'exact', head: true })
+      .eq('evaluator_id', userId)
+      .eq('status', 'submitted')
+      .neq('type', 'self'),
+    supabase
+      .from('evaluations')
+      .select('id', { count: 'exact', head: true })
+      .eq('evaluator_id', userId)
+      .eq('evaluated_id', userId)
+      .eq('type', 'self')
+      .eq('status', 'submitted'),
+    supabase
+      .from('evaluations')
+      .select('id', { count: 'exact', head: true })
+      .eq('type', 'self')
+      .eq('status', 'submitted'),
+  ]);
+
+  if (receivedRes.error) throw new Error(receivedRes.error.message);
+  if (sentRes.error) throw new Error(sentRes.error.message);
+  if (selfRes.error) throw new Error(selfRes.error.message);
+  if (teamSelfRes.error) throw new Error(teamSelfRes.error.message);
+
+  return {
+    received: receivedRes.count ?? 0,
+    sent: sentRes.count ?? 0,
+    self: selfRes.count ?? 0,
+    teamSelf: teamSelfRes.count ?? 0,
   };
 }

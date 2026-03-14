@@ -14,10 +14,12 @@ import {
   getCloseToDeadlineActionPlans,
   getRecentActivity,
   getEmployeePdiSummary,
+  getEvaluationCounts,
 } from '@/services/dashboardService';
 import type {
   DashboardRecentActivityItem,
   DashboardEmployeeMetrics,
+  DashboardEvaluationCounts,
 } from '@/types/dashboard';
 
 const RECENT_ACTIVITY_LIMIT = 10;
@@ -115,4 +117,13 @@ export function useEmployeePdiSummary(): UseDashboardMetricResult<DashboardEmplo
   const { user } = useAuth();
   const enabled = user?.role === 'employee';
   return useDashboardMetric(enabled, getEmployeePdiSummary);
+}
+
+/**
+ * Evaluation counts (received, sent, self, teamSelf). RLS scopes teamSelf for manager/HR.
+ */
+export function useEvaluationCounts(): UseDashboardMetricResult<DashboardEvaluationCounts> {
+  const { user } = useAuth();
+  const enabled = !!user;
+  return useDashboardMetric(enabled, getEvaluationCounts);
 }

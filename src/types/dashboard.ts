@@ -45,3 +45,11 @@ export interface DashboardMetricsResponse {
   metrics: DashboardMetrics;
   recentActivity: DashboardRecentActivityItem[];
 }
+
+/** Evaluation counts for dashboard (from Evaluation page data). */
+export interface DashboardEvaluationCounts {
+  received: number;
+  sent: number;
+  self: number;
+  teamSelf: number;
+}
