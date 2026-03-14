@@ -411,7 +411,7 @@ export default function Dashboard() {
                 <ChevronRight className="w-5 h-5 ml-auto text-muted-foreground group-hover:text-primary transition-colors" />
               </Link>
 
-              <Link
+              {/* <Link
                 to="/mentoring"
                 className="card-interactive p-5 flex items-center gap-4 group"
               >
@@ -423,7 +423,7 @@ export default function Dashboard() {
                   <p className="text-sm text-muted-foreground">Sessão agendada: Seg 10h</p>
                 </div>
                 <ChevronRight className="w-5 h-5 ml-auto text-muted-foreground group-hover:text-primary transition-colors" />
-              </Link>
+              </Link> */}
 
               <Link
                 to="/assessment"
