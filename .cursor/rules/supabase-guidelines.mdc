@@ -49,3 +49,54 @@ Never duplicate the same rule across layers.
 
 ```sql
 ALTER TABLE example ENABLE ROW LEVEL SECURITY;
+
+
+### Supabase Guidelines — Cloud Functions (Edge Functions)
+
+Always use **Supabase Cloud Functions (Edge Functions)** for operations that involve complex logic, heavy processing, or multi-step workflows.
+
+Rules:
+
+- Prefer **Supabase Edge Functions** when the operation involves:
+  - Complex business logic
+  - Multiple database operations
+  - Data transformations or calculations
+  - Integrations with external APIs
+  - Background tasks or asynchronous processing
+  - Notification systems
+  - Permission checks or secure workflows
+  - Any process that should not rely on frontend execution
+
+- Avoid implementing complex logic directly in:
+  - React components
+  - Frontend services
+  - Multiple chained Supabase queries from the client
+
+Implementation Guidelines:
+
+- Move complex workflows to **Supabase Edge Functions**.
+- The frontend should call these functions via HTTP requests.
+- Edge Functions should be responsible for:
+  - orchestrating database operations
+  - applying business rules
+  - validating permissions
+  - handling integrations
+
+Frontend Responsibilities:
+
+- UI rendering
+- user interaction
+- simple data fetching
+- calling Edge Functions when business logic is required
+
+Benefits:
+
+- Centralized business logic
+- Better security (logic not exposed to the client)
+- Easier maintenance
+- Better scalability
+- Reduced frontend complexity
+
+Principle:
+
+> If the action requires more than a simple CRUD operation, it should likely be implemented inside a **Supabase Edge Function**.

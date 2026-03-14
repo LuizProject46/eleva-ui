@@ -7,18 +7,13 @@ import type { Pdi, PdiStatus } from '@/types/pdi';
 
 export const PDI_STATUS_LABELS: Record<PdiStatus, string> = {
   draft: 'Rascunho',
-  in_approval: 'Em aprovação',
   active: 'Ativo',
   closed: 'Concluído',
   archived: 'Arquivado',
 };
 
-export function canSendToApproval(pdi: Pdi): boolean {
+export function canActivatePdi(pdi: Pdi): boolean {
   return pdi.status === 'draft';
-}
-
-export function canApprovePdi(pdi: Pdi): boolean {
-  return pdi.status === 'in_approval';
 }
 
 export function canClosePdi(pdi: Pdi): boolean {
@@ -31,11 +26,8 @@ export function canArchivePdi(pdi: Pdi): boolean {
 
 export function canTransitionTo(pdi: Pdi, newStatus: PdiStatus): boolean {
   switch (newStatus) {
-    case 'in_approval':
-      return canSendToApproval(pdi);
     case 'active':
-    case 'draft':
-      return canApprovePdi(pdi);
+      return canActivatePdi(pdi);
     case 'closed':
       return canClosePdi(pdi);
     case 'archived':

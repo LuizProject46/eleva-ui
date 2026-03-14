@@ -205,6 +205,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     //   cancelled = true;
     //   subscription.unsubscribe();
     // };
+
+    return () => {
+      cancelled = true;
+    };
   }, [loadUser, clearSession]);
 
   const login = async (email: string, password: string) => {

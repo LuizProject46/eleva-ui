@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,8 +18,9 @@ import {
 } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { createPdi } from '@/services/pdiService';
-import type { PdiOrigin } from '@/types/pdi';
+import { createPdi } from '@/modules/pdi/services/pdiService';
+import type { PdiType } from '@/types/pdi';
+import { PDI_TYPE_OPTIONS } from '@/constants/pdiTypes';
 import { toast } from 'sonner';
 import { AsyncSearchCombobox } from '@/components/async/AsyncSearchCombobox';
 import type { AsyncSearchOption } from '@/components/async/AsyncSearchCombobox';
@@ -30,30 +31,11 @@ interface CreatePdiDialogProps {
   onSuccess: (pdiId: string) => void;
 }
 
-interface EvaluationOption {
-  id: string;
-  submitted_at: string | null;
-}
-
-const ORIGIN_OPTIONS: { value: PdiOrigin; label: string }[] = [
-  { value: 'evaluation', label: 'Avaliação' },
-  { value: 'disc', label: 'DISC' },
-  { value: 'feedback', label: 'Feedback' },
-];
-
-const NONE_VALUE = '__none__';
-
 export function CreatePdiDialog({ open, onOpenChange, onSuccess }: CreatePdiDialogProps) {
-  const { user, canManagePdi } = useAuth();
+  const { user } = useAuth();
   const [employee, setEmployee] = useState<AsyncSearchOption | null>(null);
-  const [evaluations, setEvaluations] = useState<EvaluationOption[]>([]);
-  const [assessments, setAssessments] = useState<{ id: string }[]>([]);
-
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [origin, setOrigin] = useState<PdiOrigin>('evaluation');
-  const [evaluationId, setEvaluationId] = useState<string>('');
-  const [behavioralAssessmentId, setBehavioralAssessmentId] = useState<string>('');
+  const [type, setType] = useState<PdiType>('performance_improvement');
+  const [title, setTitle] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const searchEmployees = useCallback(
@@ -79,48 +61,10 @@ export function CreatePdiDialog({ open, onOpenChange, onSuccess }: CreatePdiDial
     [user?.tenantId, user?.id, user?.role]
   );
 
-  const fetchEvaluationsForEmployee = useCallback(async (empId: string) => {
-    const { data } = await supabase
-      .from('evaluations')
-      .select('id, submitted_at')
-      .eq('evaluated_id', empId)
-      .eq('status', 'submitted')
-      .order('submitted_at', { ascending: false });
-    setEvaluations((data ?? []) as EvaluationOption[]);
-  }, []);
-
-  const fetchAssessmentForEmployee = useCallback(async (empId: string) => {
-    const { data } = await supabase
-      .from('behavioral_assessments')
-      .select('id')
-      .eq('user_id', empId)
-      .eq('status', 'completed')
-      .maybeSingle();
-    setAssessments(data ? [data] : []);
-  }, []);
-
-  useEffect(() => {
-    if (!employee?.id) {
-      setEvaluations([]);
-      setAssessments([]);
-      setEvaluationId('');
-      setBehavioralAssessmentId('');
-      return;
-    }
-    fetchEvaluationsForEmployee(employee.id);
-    fetchAssessmentForEmployee(employee.id);
-    setEvaluationId('');
-    setBehavioralAssessmentId('');
-  }, [employee?.id, fetchEvaluationsForEmployee, fetchAssessmentForEmployee]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user?.tenantId || !employee?.id || !startDate || !endDate) {
-      toast.error('Preencha colaborador e período.');
-      return;
-    }
-    if (new Date(startDate) > new Date(endDate)) {
-      toast.error('Data inicial deve ser anterior à data final.');
+    if (!user?.tenantId || !employee?.id) {
+      toast.error('Selecione o colaborador.');
       return;
     }
     setIsSubmitting(true);
@@ -128,11 +72,8 @@ export function CreatePdiDialog({ open, onOpenChange, onSuccess }: CreatePdiDial
       const pdi = await createPdi({
         tenant_id: user.tenantId,
         employee_id: employee.id,
-        start_date: startDate,
-        end_date: endDate,
-        origin,
-        evaluation_id: origin === 'evaluation' && evaluationId ? evaluationId : null,
-        behavioral_assessment_id: origin === 'disc' && behavioralAssessmentId ? behavioralAssessmentId : null,
+        type,
+        title: title.trim() || null,
         created_by: user?.id ?? null,
       });
       onSuccess(pdi.id);
@@ -145,11 +86,8 @@ export function CreatePdiDialog({ open, onOpenChange, onSuccess }: CreatePdiDial
   const handleOpenChange = (next: boolean) => {
     if (!next) {
       setEmployee(null);
-      setStartDate('');
-      setEndDate('');
-      setOrigin('evaluation');
-      setEvaluationId('');
-      setBehavioralAssessmentId('');
+      setType('performance_improvement');
+      setTitle('');
     }
     onOpenChange(next);
   };
@@ -172,81 +110,31 @@ export function CreatePdiDialog({ open, onOpenChange, onSuccess }: CreatePdiDial
               emptyMessage="Nenhum encontrado."
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="pdi-start">Data inicial</Label>
-              <Input
-                id="pdi-start"
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="pdi-end">Data final</Label>
-              <Input
-                id="pdi-end"
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                required
-              />
-            </div>
-          </div>
           <div className="space-y-2">
-            <Label htmlFor="pdi-origin">Origem</Label>
-            <Select value={origin} onValueChange={(v) => setOrigin(v as PdiOrigin)}>
-              <SelectTrigger id="pdi-origin">
+            <Label htmlFor="pdi-type">Tipo</Label>
+            <Select value={type} onValueChange={(v) => setType(v as PdiType)}>
+              <SelectTrigger id="pdi-type">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {ORIGIN_OPTIONS.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                {PDI_TYPE_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-          {origin === 'evaluation' && evaluations.length > 0 && (
-            <div className="space-y-2">
-              <Label htmlFor="pdi-evaluation">Avaliação vinculada (opcional)</Label>
-              <Select
-                value={evaluationId || NONE_VALUE}
-                onValueChange={(v) => setEvaluationId(v === NONE_VALUE ? '' : v)}
-              >
-                <SelectTrigger id="pdi-evaluation">
-                  <SelectValue placeholder="Nenhuma" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE_VALUE}>Nenhuma</SelectItem>
-                  {evaluations.map((ev) => (
-                    <SelectItem key={ev.id} value={ev.id}>
-                      Avaliação {ev.submitted_at ? new Date(ev.submitted_at).toLocaleDateString('pt-BR') : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-          {origin === 'disc' && assessments.length > 0 && (
-            <div className="space-y-2">
-              <Label htmlFor="pdi-disc">DISC vinculado (opcional)</Label>
-              <Select
-                value={behavioralAssessmentId || NONE_VALUE}
-                onValueChange={(v) => setBehavioralAssessmentId(v === NONE_VALUE ? '' : v)}
-              >
-                <SelectTrigger id="pdi-disc">
-                  <SelectValue placeholder="Nenhum" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE_VALUE}>Nenhum</SelectItem>
-                  {assessments.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>Teste DISC</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+          <div className="space-y-2">
+            <Label htmlFor="pdi-title">Título (opcional)</Label>
+            <Input
+              id="pdi-title"
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Ex.: PDI Q1 2025"
+            />
+          </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
               Cancelar

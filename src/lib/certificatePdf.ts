@@ -88,7 +88,7 @@ function formatWorkload(workloadHours: number | null): string {
 export async function buildCertificatePdf(payload: CertificatePdfPayload): Promise<Blob> {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   let fontName = FONT_FALLBACK;
-  let fontStyleNormal: 'normal' | 'italic' = 'normal';
+  const fontStyleNormal: 'normal' | 'italic' = 'normal';
   let fontStyleBold: 'bold' | 'italic' = 'bold';
   try {
     const fontBinary = await loadCormorantBinary();

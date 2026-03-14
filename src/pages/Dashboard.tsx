@@ -2,40 +2,132 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { StatCard } from '@/components/ui/stat-card';
 import { MotivationalQuote } from '@/components/dashboard/MotivationalQuote';
-import { ProgressSteps } from '@/components/ui/progress-steps';
-import { 
-  ClipboardCheck, 
-  Users, 
-  TrendingUp, 
-  Calendar,
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  useTotalCollaborators,
+  useTeamSize,
+  useTotalPdis,
+  useActivePdis,
+  useOverdueActionPlans,
+  useCloseToDeadlineActionPlans,
+  useRecentActivity,
+  useEmployeePdiSummary,
+} from '@/hooks/useDashboardMetrics';
+import type { DashboardRecentActivityItem } from '@/types/dashboard';
+import {
+  ClipboardCheck,
+  Users,
+  TrendingUp,
   ChevronRight,
-  Star
+  Star,
+  FileText,
+  Clock,
+  CalendarClock,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 
-const onboardingSteps = [
-  { id: '1', title: 'Documentação inicial', completed: true },
-  { id: '2', title: 'Treinamento institucional', completed: true },
-  { id: '3', title: 'Conhecer a equipe', completed: false, current: true },
-  { id: '4', title: 'Primeiro projeto', completed: false },
-];
+const CLOSE_TO_DEADLINE_DAYS = 7;
 
-const hrStats = [
-  { title: 'Colaboradores Ativos', value: 127, icon: <Users className="w-6 h-6" />, trend: { value: 12, positive: true } },
-  { title: 'Em Onboarding', value: 8, icon: <ClipboardCheck className="w-6 h-6" /> },
-  { title: 'Avaliações Pendentes', value: 23, icon: <Calendar className="w-6 h-6" /> },
-  { title: 'Taxa de Engajamento', value: '94%', icon: <TrendingUp className="w-6 h-6" />, trend: { value: 5, positive: true } },
-];
+function formatActivityDate(iso: string): string {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  } catch {
+    return '';
+  }
+}
 
-const recentEmployees = [
-  { id: 1, name: 'Ana Costa', role: 'Designer UX', progress: 75, avatar: 'A' },
-  { id: 2, name: 'Carlos Lima', role: 'Desenvolvedor', progress: 50, avatar: 'C' },
-  { id: 3, name: 'Julia Martins', role: 'Analista de Dados', progress: 25, avatar: 'J' },
-];
+function getInitial(name: string | null | undefined): string {
+  if (!name?.trim()) return '?';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+}
+
+function StatCardSkeleton() {
+  return (
+    <div className="card-interactive p-6 flex items-start justify-between">
+      <div className="space-y-2">
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-9 w-20" />
+      </div>
+      <Skeleton className="h-12 w-12 rounded-xl" />
+    </div>
+  );
+}
+
+function RecentActivitySkeleton() {
+  return (
+    <div className="space-y-4">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="flex items-center gap-4 p-4 rounded-xl bg-muted/30">
+          <Skeleton className="w-12 h-12 rounded-full shrink-0" />
+          <div className="flex-1 min-w-0 space-y-2">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-3 w-24" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+interface StatCardWithStateProps {
+  title: string;
+  value: number | null;
+  icon: React.ReactNode;
+  variant?: 'primary' | 'default';
+  isLoading: boolean;
+  error: string | null;
+  onRetry: () => Promise<void>;
+}
+
+function StatCardWithState({
+  title,
+  value,
+  icon,
+  variant,
+  isLoading,
+  error,
+  onRetry,
+}: StatCardWithStateProps) {
+  if (isLoading) return <StatCardSkeleton />;
+  if (error) {
+    return (
+      <div className="card-interactive p-6 flex flex-col gap-2">
+        <p className="text-sm text-muted-foreground">{title}</p>
+        <p className="text-sm text-destructive">{error}</p>
+        <Button variant="outline" size="sm" onClick={onRetry}>
+          Tentar novamente
+        </Button>
+      </div>
+    );
+  }
+  return (
+    <StatCard
+      title={title}
+      value={value ?? 0}
+      icon={icon}
+      variant={variant}
+    />
+  );
+}
 
 export default function Dashboard() {
   const { user, canManageUsers, isHR } = useAuth();
   const showTeamView = canManageUsers();
+
+  const totalCollaborators = useTotalCollaborators();
+  const teamSize = useTeamSize();
+  const totalPdis = useTotalPdis();
+  const activePdis = useActivePdis();
+  const overdueActionPlans = useOverdueActionPlans();
+  const closeToDeadlineActionPlans = useCloseToDeadlineActionPlans();
+  const recentActivity = useRecentActivity();
+  const employeePdiSummary = useEmployeePdiSummary();
 
   return (
     <MainLayout>
@@ -55,107 +147,260 @@ export default function Dashboard() {
         </div>
 
         {showTeamView ? (
-          // HR Dashboard
+          /* HR / Manager Dashboard */
           <>
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {hrStats.map((stat, index) => (
-                <StatCard
-                  key={stat.title}
-                  {...stat}
-                  variant={index === 0 ? 'primary' : 'default'}
-                />
-              ))}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+              {isHR() && (
+                <>
+                  <StatCardWithState
+                    title="Colaboradores Ativos"
+                    value={totalCollaborators.data}
+                    icon={<Users className="w-6 h-6" />}
+                    variant="primary"
+                    isLoading={totalCollaborators.isLoading}
+                    error={totalCollaborators.error}
+                    onRetry={totalCollaborators.refetch}
+                  />
+                  <StatCardWithState
+                    title="Total de PDIs"
+                    value={totalPdis.data}
+                    icon={<FileText className="w-6 h-6" />}
+                    isLoading={totalPdis.isLoading}
+                    error={totalPdis.error}
+                    onRetry={totalPdis.refetch}
+                  />
+                  <StatCardWithState
+                    title="PDIs Ativos"
+                    value={activePdis.data}
+                    icon={<ClipboardCheck className="w-6 h-6" />}
+                    isLoading={activePdis.isLoading}
+                    error={activePdis.error}
+                    onRetry={activePdis.refetch}
+                  />
+                  <StatCardWithState
+                    title="Planos Atrasados"
+                    value={overdueActionPlans.data}
+                    icon={<Clock className="w-6 h-6" />}
+                    isLoading={overdueActionPlans.isLoading}
+                    error={overdueActionPlans.error}
+                    onRetry={overdueActionPlans.refetch}
+                  />
+                  <StatCardWithState
+                    title={`Próximos ${CLOSE_TO_DEADLINE_DAYS} dias`}
+                    value={closeToDeadlineActionPlans.data}
+                    icon={<CalendarClock className="w-6 h-6" />}
+                    isLoading={closeToDeadlineActionPlans.isLoading}
+                    error={closeToDeadlineActionPlans.error}
+                    onRetry={closeToDeadlineActionPlans.refetch}
+                  />
+                </>
+              )}
+              {user?.role === 'manager' && (
+                <>
+                  <StatCardWithState
+                    title="Colaboradores na equipe"
+                    value={teamSize.data}
+                    icon={<Users className="w-6 h-6" />}
+                    variant="primary"
+                    isLoading={teamSize.isLoading}
+                    error={teamSize.error}
+                    onRetry={teamSize.refetch}
+                  />
+                  <StatCardWithState
+                    title="PDIs da equipe"
+                    value={totalPdis.data}
+                    icon={<FileText className="w-6 h-6" />}
+                    isLoading={totalPdis.isLoading}
+                    error={totalPdis.error}
+                    onRetry={totalPdis.refetch}
+                  />
+                  <StatCardWithState
+                    title="PDIs Ativos"
+                    value={activePdis.data}
+                    icon={<ClipboardCheck className="w-6 h-6" />}
+                    isLoading={activePdis.isLoading}
+                    error={activePdis.error}
+                    onRetry={activePdis.refetch}
+                  />
+                  <StatCardWithState
+                    title="Planos Atrasados"
+                    value={overdueActionPlans.data}
+                    icon={<Clock className="w-6 h-6" />}
+                    isLoading={overdueActionPlans.isLoading}
+                    error={overdueActionPlans.error}
+                    onRetry={overdueActionPlans.refetch}
+                  />
+                  <StatCardWithState
+                    title={`Próximos ${CLOSE_TO_DEADLINE_DAYS} dias`}
+                    value={closeToDeadlineActionPlans.data}
+                    icon={<CalendarClock className="w-6 h-6" />}
+                    isLoading={closeToDeadlineActionPlans.isLoading}
+                    error={closeToDeadlineActionPlans.error}
+                    onRetry={closeToDeadlineActionPlans.refetch}
+                  />
+                </>
+              )}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Recent Onboarding */}
               <div className="lg:col-span-2 card-elevated p-6">
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-lg font-display font-semibold text-foreground">
-                    Onboarding Recente
+                    Atividade recente em PDIs
                   </h2>
-                  <Link 
-                    to="/onboarding"
+                  <Link
+                    to="/pdis"
                     className="text-sm text-primary hover:underline flex items-center gap-1"
                   >
                     Ver todos
                     <ChevronRight className="w-4 h-4" />
                   </Link>
                 </div>
-
-                <div className="space-y-4">
-                  {recentEmployees.map((employee) => (
-                    <div 
-                      key={employee.id}
-                      className="flex items-center gap-4 p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="w-12 h-12 rounded-full gradient-hero flex items-center justify-center text-white font-semibold">
-                        {employee.avatar}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-foreground">{employee.name}</p>
-                        <p className="text-sm text-muted-foreground">{employee.role}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-semibold text-primary">{employee.progress}%</p>
-                        <div className="w-20 h-2 bg-muted rounded-full mt-1 overflow-hidden">
-                          <div 
-                            className="h-full gradient-hero rounded-full transition-all duration-500"
-                            style={{ width: `${employee.progress}%` }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                {recentActivity.isLoading && <RecentActivitySkeleton />}
+                {recentActivity.error && (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-sm text-destructive">{recentActivity.error}</p>
+                    <Button variant="outline" size="sm" onClick={recentActivity.refetch}>
+                      Tentar novamente
+                    </Button>
+                  </div>
+                )}
+                {!recentActivity.isLoading && !recentActivity.error && (
+                  <div className="space-y-4">
+                    {!recentActivity.data || recentActivity.data.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        Nenhuma atividade recente.
+                      </p>
+                    ) : (
+                      recentActivity.data.map((item: DashboardRecentActivityItem) => (
+                        <Link
+                          key={item.pdiId}
+                          to={`/pdis/${item.pdiId}`}
+                          className="flex items-center gap-4 p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors block"
+                        >
+                          <div className="w-12 h-12 rounded-full gradient-hero flex items-center justify-center text-white font-semibold shrink-0">
+                            {getInitial(item.employeeName)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-foreground">
+                              {item.employeeName ?? 'PDI'}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {item.title ?? 'PDI'} · Atualizado em{' '}
+                              {formatActivityDate(item.updatedAt)}
+                            </p>
+                          </div>
+                          <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0" />
+                        </Link>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
-
-              {/* Motivational Quote */}
               <MotivationalQuote />
             </div>
           </>
         ) : (
-          // Employee Dashboard
+          /* Employee (Collaborator) Dashboard */
           <>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Onboarding Progress */}
               <div className="lg:col-span-2 card-elevated p-6">
                 <div className="flex items-center justify-between mb-6">
                   <div>
                     <h2 className="text-lg font-display font-semibold text-foreground">
-                      Seu Onboarding
+                      Seu PDI
                     </h2>
                     <p className="text-sm text-muted-foreground">
-                      Continue de onde parou
+                      Resumo dos seus planos de ação
                     </p>
                   </div>
-                  <Link 
-                    to="/onboarding"
-                    className="text-sm text-primary hover:underline flex items-center gap-1"
-                  >
-                    Ver detalhes
-                    <ChevronRight className="w-4 h-4" />
-                  </Link>
+                  {employeePdiSummary.data?.hasActivePdi &&
+                    employeePdiSummary.data?.activePdiId && (
+                      <Link
+                        to={`/pdis/${employeePdiSummary.data.activePdiId}`}
+                        className="text-sm text-primary hover:underline flex items-center gap-1"
+                      >
+                        Ver PDI
+                        <ChevronRight className="w-4 h-4" />
+                      </Link>
+                    )}
                 </div>
-                <ProgressSteps steps={onboardingSteps} />
+                {employeePdiSummary.isLoading && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <StatCardSkeleton />
+                    <StatCardSkeleton />
+                    <StatCardSkeleton />
+                    <StatCardSkeleton />
+                  </div>
+                )}
+                {employeePdiSummary.error && (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-sm text-destructive">{employeePdiSummary.error}</p>
+                    <Button variant="outline" size="sm" onClick={employeePdiSummary.refetch}>
+                      Tentar novamente
+                    </Button>
+                  </div>
+                )}
+                {!employeePdiSummary.isLoading &&
+                  !employeePdiSummary.error &&
+                  employeePdiSummary.data && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <StatCard
+                        title="PDI ativo"
+                        value={employeePdiSummary.data.hasActivePdi ? 'Sim' : 'Não'}
+                        icon={<FileText className="w-6 h-6" />}
+                      />
+                      <StatCard
+                        title="Total de planos de ação"
+                        value={employeePdiSummary.data.totalActionPlans}
+                        icon={<ClipboardCheck className="w-6 h-6" />}
+                      />
+                      <StatCard
+                        title="Planos atrasados"
+                        value={employeePdiSummary.data.overdueActionPlans}
+                        icon={<Clock className="w-6 h-6" />}
+                      />
+                      <StatCard
+                        title={`Próximos ${CLOSE_TO_DEADLINE_DAYS} dias`}
+                        value={employeePdiSummary.data.closeToDeadlineActionPlans}
+                        icon={<CalendarClock className="w-6 h-6" />}
+                      />
+                    </div>
+                  )}
               </div>
-
-              {/* Quick Stats */}
               <div className="space-y-6">
-                <StatCard
-                  title="Próxima Avaliação"
-                  value="15 dias"
-                  subtitle="Avaliação trimestral"
-                  icon={<Calendar className="w-6 h-6" />}
-                />
                 <MotivationalQuote />
+                {!recentActivity.isLoading &&
+                  !recentActivity.error &&
+                  recentActivity.data &&
+                  recentActivity.data.length > 0 && (
+                    <div className="card-elevated p-6">
+                      <h2 className="text-lg font-display font-semibold text-foreground mb-4">
+                        Atualizações recentes
+                      </h2>
+                      <ul className="space-y-3">
+                        {recentActivity.data.slice(0, 5).map((item: DashboardRecentActivityItem) => (
+                          <li key={item.pdiId}>
+                            <Link
+                              to={`/pdis/${item.pdiId}`}
+                              className="text-sm text-primary hover:underline"
+                            >
+                              {item.title ?? 'PDI'} · {formatActivityDate(item.updatedAt)}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
               </div>
             </div>
 
             {/* Quick Actions */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Link to="/evaluation" className="card-interactive p-5 flex items-center gap-4 group">
+              <Link
+                to="/evaluation"
+                className="card-interactive p-5 flex items-center gap-4 group"
+              >
                 <div className="p-3 rounded-xl bg-primary/10 text-primary group-hover:scale-110 transition-transform">
                   <Star className="w-6 h-6" />
                 </div>
@@ -166,7 +411,10 @@ export default function Dashboard() {
                 <ChevronRight className="w-5 h-5 ml-auto text-muted-foreground group-hover:text-primary transition-colors" />
               </Link>
 
-              <Link to="/mentoring" className="card-interactive p-5 flex items-center gap-4 group">
+              <Link
+                to="/mentoring"
+                className="card-interactive p-5 flex items-center gap-4 group"
+              >
                 <div className="p-3 rounded-xl bg-accent/10 text-accent group-hover:scale-110 transition-transform">
                   <Users className="w-6 h-6" />
                 </div>
@@ -177,7 +425,10 @@ export default function Dashboard() {
                 <ChevronRight className="w-5 h-5 ml-auto text-muted-foreground group-hover:text-primary transition-colors" />
               </Link>
 
-              <Link to="/assessment" className="card-interactive p-5 flex items-center gap-4 group">
+              <Link
+                to="/assessment"
+                className="card-interactive p-5 flex items-center gap-4 group"
+              >
                 <div className="p-3 rounded-xl bg-primary/10 text-primary group-hover:scale-110 transition-transform">
                   <TrendingUp className="w-6 h-6" />
                 </div>

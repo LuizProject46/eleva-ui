@@ -449,7 +449,7 @@ export default function Assessment() {
       .maybeSingle();
     if (error) {
       toast.error('Erro ao carregar o teste comportamental');
-      return
+      return;
     }
 
     setMyAssessment(data as BehavioralAssessmentRow | null);
@@ -459,7 +459,8 @@ export default function Assessment() {
     if (data?.status === 'completed' && data?.completed_at) {
       setShowResult(true);
     } else {
-      Object.keys(data?.answers || {}).length > 0 ? setCurrentQuestion(Object.keys(data?.answers || {}).length - 1) : setCurrentQuestion(-1);
+      const count = Object.keys((data?.answers || {}) as Record<string, unknown>).length;
+      setCurrentQuestion(count > 0 ? count - 1 : -1);
     }
     setIsLoadingMyAssessment(false);
   }, [canTake, user?.id]);

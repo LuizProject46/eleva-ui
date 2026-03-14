@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 function getNotificationLink(type: string, relatedId: string | null): string {
   if (type === 'assessment_period_reminder') return '/assessment';
   if (type === 'mandatory_course_assigned' || type === 'course_assigned') return '/courses';
+  if (type === 'pdi_action_plan_reminder' && relatedId) return `/pdi/${relatedId}`;
   return '/evaluation';
 }
 

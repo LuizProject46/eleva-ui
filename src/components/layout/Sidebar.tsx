@@ -41,7 +41,7 @@ const managerNavItems = [
   { icon: GraduationCap, label: 'Cursos / Treinamentos', path: '/courses' },
   { icon: Award, label: 'Certificados', path: '/certificates' },
   { icon: UserCheck, label: 'Avaliações', path: '/evaluation' },
-  { icon: Users, label: 'Mentorias', path: '/mentoring' },
+  // { icon: Users, label: 'Mentorias', path: '/mentoring' },
   { icon: Brain, label: 'Teste Comportamental', path: '/assessment' },
   { icon: ClipboardList, label: 'PDI', path: '/pdis' },
   { icon: UserPlus, label: 'Minha Equipe', path: '/employees' },
@@ -52,13 +52,14 @@ const hrNavItems = [
   // { icon: ClipboardCheck, label: 'Onboarding', path: '/onboarding' },
   { icon: GraduationCap, label: 'Cursos / Treinamentos', path: '/courses' },
   { icon: UserCheck, label: 'Avaliações', path: '/evaluation' },
-  { icon: Users, label: 'Mentorias', path: '/mentoring' },
+  // { icon: Users, label: 'Mentorias', path: '/mentoring' },
   { icon: Brain, label: 'Teste Comportamental', path: '/assessment' },
   { icon: ClipboardList, label: 'PDI', path: '/pdis' },
   { icon: UserPlus, label: 'Colaboradores', path: '/employees' },
 ];
 
 const comingSoonConfig = {
+  mentoria: { enabled: false, path: '/mentoring' },
   pesquisaClima: { enabled: false, path: '/pesquisa-clima' },
   gamificacao: { enabled: false, path: '/gamificacao' },
 } as const;
@@ -66,6 +67,7 @@ const comingSoonConfig = {
 const comingSoonNavItems = [
   { id: 'pesquisaClima' as const, icon: ClipboardList, label: 'Pesquisa de Clima' },
   { id: 'gamificacao' as const, icon: Gamepad2, label: 'Gamificação' },
+  { id: 'mentoria' as const, icon: Users, label: 'Mentoria' },
 ];
 
 function getNavItems(role: string) {

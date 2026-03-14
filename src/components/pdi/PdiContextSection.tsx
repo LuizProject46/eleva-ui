@@ -1,7 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { listAssignmentsByUser } from '@/services/courseAssignmentService';
 import { isCourseCompleted } from '@/services/courseProgressService';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 
 const MAX_ASSIGNMENTS_TO_CHECK = 15;
 
@@ -12,6 +19,7 @@ interface PdiContextSectionProps {
 export function PdiContextSection({ employeeId }: PdiContextSectionProps) {
   const [completedCourseTitles, setCompletedCourseTitles] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
 
   const fetchCompletedCourses = useCallback(async () => {
     if (!employeeId) return;
@@ -50,10 +58,12 @@ export function PdiContextSection({ employeeId }: PdiContextSectionProps) {
 
   if (isLoading) {
     return (
-      <div className="rounded-lg border border-border bg-card p-4 md:p-6">
-        <h2 className="font-semibold text-foreground mb-2">Contexto para o PDI</h2>
-        <p className="text-sm text-muted-foreground">Carregando...</p>
-      </div>
+      <Card>
+        <CardHeader>
+          <h2 className="text-lg font-semibold text-foreground">Contexto para o PDI</h2>
+          <p className="text-sm text-muted-foreground">Carregando...</p>
+        </CardHeader>
+      </Card>
     );
   }
 
@@ -62,16 +72,37 @@ export function PdiContextSection({ employeeId }: PdiContextSectionProps) {
   }
 
   return (
-    <div className="rounded-lg border border-border bg-card p-4 md:p-6">
-      <h2 className="font-semibold text-foreground mb-2">Contexto para o PDI</h2>
-      <p className="text-sm text-muted-foreground mb-2">
-        Cursos concluídos que podem informar o desenvolvimento (uso como referência para decisões):
-      </p>
-      <ul className="text-sm text-foreground list-disc list-inside space-y-1">
-        {completedCourseTitles.map((title, i) => (
-          <li key={i}>{title}</li>
-        ))}
-      </ul>
-    </div>
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <Card>
+        <CardHeader className="pb-2">
+          <CollapsibleTrigger asChild>
+            <button
+              type="button"
+              className="flex w-full items-center justify-between text-left hover:opacity-80 transition-opacity rounded-md -m-2 p-2"
+            >
+              <h2 className="text-lg font-semibold text-foreground">
+                Contexto para o PDI
+              </h2>
+              <ChevronDown
+                className={`h-4 w-4 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`}
+              />
+            </button>
+          </CollapsibleTrigger>
+        </CardHeader>
+        <CollapsibleContent>
+          <CardContent className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Cursos concluídos que podem informar o desenvolvimento (uso como
+              referência para decisões):
+            </p>
+            <ul className="text-sm text-foreground list-disc list-inside space-y-1">
+              {completedCourseTitles.map((title, i) => (
+                <li key={i}>{title}</li>
+              ))}
+            </ul>
+          </CardContent>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
   );
 }

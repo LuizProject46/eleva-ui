@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -48,12 +49,16 @@ export function PdiCloseSection({ onClose }: PdiCloseSectionProps) {
   };
 
   return (
-    <div className="rounded-lg border border-border bg-card p-4 md:p-6 space-y-4">
-      <h2 className="font-semibold text-foreground">Encerrar PDI</h2>
-      <p className="text-sm text-muted-foreground">
-        Ao encerrar, informe o resultado e opcionalmente um comentário final.
-      </p>
-      <Button onClick={() => setDialogOpen(true)}>Encerrar PDI</Button>
+    <Card>
+      <CardHeader>
+        <h2 className="text-lg font-semibold text-foreground">Encerrar PDI</h2>
+        <p className="text-sm text-muted-foreground">
+          Ao encerrar, informe o resultado e opcionalmente um comentário final.
+        </p>
+      </CardHeader>
+      <CardContent>
+        <Button onClick={() => setDialogOpen(true)}>Encerrar PDI</Button>
+      </CardContent>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
@@ -94,6 +99,6 @@ export function PdiCloseSection({ onClose }: PdiCloseSectionProps) {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+    </Card>
   );
 }
