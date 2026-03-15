@@ -68,8 +68,11 @@ export function BackofficeTenantCreate() {
         return;
       }
 
-      const payload = data as { tenant_id?: string };
+      const payload = data as { tenant_id?: string; onboarding_email_sent?: boolean };
       toast.success('Tenant criado com sucesso.');
+      if (payload?.onboarding_email_sent === false) {
+        toast.warning('E-mail de onboarding não foi enviado. Verifique RESEND_API_KEY e SITE_URL nas configurações da função.');
+      }
       if (payload?.tenant_id) {
         navigate(`/backoffice/tenants/${payload.tenant_id}`);
       } else {

@@ -74,7 +74,7 @@ const DEFAULT_DEPARTMENTS = [
 const EMPTY_MANAGER_VALUE = '__none__';
 
 /** Substring to detect backend "user limit reached" error (403 from invite-employee). */
-const USER_LIMIT_ERROR_MARKER = 'limite de usuários';
+const USER_LIMIT_ERROR_MARKER = 'A empresa atingiu o limite de usuários do plano. Entre em contato para aumentar o limite.';
 
 interface Profile {
   id: string;

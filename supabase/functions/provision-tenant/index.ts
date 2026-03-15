@@ -1,5 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { Resend } from 'npm:resend@4.0.0';
 import { corsHeaders } from '../_shared/cors.ts';
+import { sendOnboardingEmail } from '../_shared/onboarding-email.ts';
 
 interface ProvisionBody {
   company_name: string;
@@ -223,11 +225,39 @@ Deno.serve(async (req) => {
       );
     }
 
+    let onboardingEmailSent = true;
+    const resendApiKey = Deno.env.get('RESEND_API_KEY');
+    const tenantSlug = slugResult.slug;
+    const siteUrl = (Deno.env.get('SITE_URL') ?? Deno.env.get('SUPABASE_URL') ?? '').replace(/\/$/, '');
+    const baseUrl = siteUrl ? `${tenantSlug}.${siteUrl}` : '';
+    const loginUrl = siteUrl ? `${baseUrl}/login?tenant=${encodeURIComponent(slugResult.slug)}` : '';
+
+    if (resendApiKey && loginUrl) {
+      const resend = new Resend(resendApiKey);
+      const fromEmail = Deno.env.get('RESEND_FROM_EMAIL') ?? 'noreply@resend.dev';
+      const sendResult = await sendOnboardingEmail(resend, admin_email.trim(), {
+        companyName: company_name.trim(),
+        adminEmail: admin_email.trim(),
+        adminPassword: admin_password,
+        loginUrl,
+        adminName: admin_name?.trim() || undefined,
+      }, fromEmail, company_name.trim());
+      if (sendResult.error) {
+        console.error('Onboarding email send failed:', sendResult.error);
+        onboardingEmailSent = false;
+      }
+    } else {
+      if (!resendApiKey) console.warn('RESEND_API_KEY not set; skipping onboarding email.');
+      if (!loginUrl) console.warn('SITE_URL not set; skipping onboarding email.');
+      onboardingEmailSent = false;
+    }
+
     return new Response(
       JSON.stringify({
         tenant_id: tenantId,
         user_id: userData?.user?.id,
         slug: slugResult.slug,
+        ...(onboardingEmailSent === false && { onboarding_email_sent: false }),
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

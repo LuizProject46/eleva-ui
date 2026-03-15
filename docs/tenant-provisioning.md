@@ -51,7 +51,7 @@ That user can then log in to the app and open `/backoffice` to manage tenants.
    - Senha do administrador
    - Limite de usuários (number; 0 or leave as needed)
    - Slug (optional; if empty, derived from company name)
-4. Submit. The Edge Function creates the tenant and the first HR user. On success you are redirected to the new tenant’s detail page.
+4. Submit. The Edge Function creates the tenant and the first HR user, then sends an onboarding email to the administrator with access details. On success you are redirected to the new tenant’s detail page.
 
 ## Creating a tenant via script
 
@@ -107,8 +107,27 @@ Optional: add `"slug": "acme"` to the JSON.
 
 ### Response
 
-- **Success (200):** JSON with `tenant_id`, `user_id`, and `slug`. The tenant and first HR user exist; the admin can log in with the given email/password.
+- **Success (200):** JSON with `tenant_id`, `user_id`, and `slug`. The tenant and first HR user exist; the admin can log in with the given email/password. If the onboarding email could not be sent (e.g. Resend not configured), the response may include `onboarding_email_sent: false` so the client can show a warning; provisioning still succeeds.
 - **Error (4xx/5xx):** JSON with an `error` message (e.g. email already registered, slug in use).
+
+## Onboarding email
+
+When a tenant is successfully created (tenant record and admin user exist), the **provision-tenant** function sends an onboarding email to the administrator's email address. The email is sent only after both tenant and user are created; if provisioning fails at any step, no email is sent.
+
+**Contents of the email:**
+
+- Company name
+- Administrator login email
+- Initial access password (when provided in the request)
+- URL to access the platform for that company: `{SITE_URL}/login?tenant={slug}` so the user is directed to the correct tenant context (the app uses `?tenant=` or subdomain to resolve the tenant).
+
+**Configuration (Edge Function secrets):**
+
+- **RESEND_API_KEY** – Required for sending. If missing, provisioning still succeeds but no email is sent and the response may include `onboarding_email_sent: false`.
+- **RESEND_FROM_EMAIL** – Sender address (e.g. `noreply@yourdomain.com`). Defaults to `noreply@resend.dev` if unset.
+- **SITE_URL** – Public base URL of the app (e.g. `https://app.eleva.com`). Used to build the tenant login link. If unset, the function falls back to the Supabase project URL (which may not point to your front-end); set this in production so the link in the email is correct.
+
+If sending the email fails (e.g. Resend error, missing key), the tenant and user are **not** rolled back; the failure is logged and the API response may include `onboarding_email_sent: false`. For high-security scenarios, users can change their password after first login (e.g. via "Esqueci a senha" or Settings).
 
 ## Backoffice pages
 
