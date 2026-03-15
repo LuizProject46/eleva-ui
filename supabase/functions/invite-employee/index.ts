@@ -168,7 +168,7 @@ Deno.serve(async (req) => {
     if (!limitCheck.allowed) {
       return new Response(
         JSON.stringify({ error: limitCheck.error ?? USER_LIMIT_REACHED_MESSAGE }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -197,7 +197,7 @@ Deno.serve(async (req) => {
         if (!rateLimitLimitCheck.allowed) {
           return new Response(
             JSON.stringify({ error: rateLimitLimitCheck.error ?? USER_LIMIT_REACHED_MESSAGE }),
-            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
         const { data: createData, error: createError } = await supabaseAdmin.auth.admin.createUser({

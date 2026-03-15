@@ -406,8 +406,6 @@ export default function Colaboradores() {
         },
       });
 
-      if (error) throw error;
-
       if (data?.error) {
         const isUserLimitReached = data.error.includes(USER_LIMIT_ERROR_MARKER);
         if (isUserLimitReached) {
@@ -417,6 +415,10 @@ export default function Colaboradores() {
         }
         setSubmitting(false);
         return;
+      }
+
+      if (error) {
+        throw error;
       }
 
       const newUserId = (data?.user as { id?: string } | undefined)?.id;
@@ -445,11 +447,7 @@ export default function Colaboradores() {
       fetchProfiles();
       fetchManagers();
     } catch (err) {
-      if (err instanceof Error && err.message.includes(USER_LIMIT_ERROR_MARKER)) {
-        setUserLimitAlertMessage(err.message);
-      } else {
-        toast.error('Erro ao enviar convite. Tente novamente.');
-      }
+      toast.error('Erro ao enviar convite. Tente novamente.');
     } finally {
       setSubmitting(false);
     }
@@ -880,184 +878,184 @@ export default function Colaboradores() {
           </DialogHeader>
           <div className="overflow-y-auto flex-1 min-h-0 -mx-4 px-4 sm:-mx-6 sm:px-6">
             <form onSubmit={handleSubmit} className="space-y-4">
-            {canCreateUser() && (
+              {canCreateUser() && (
+                <div className="space-y-2">
+                  <Label>Papel</Label>
+                  <Select
+                    value={form.role}
+                    onValueChange={(v) => setForm((f) => ({ ...f, role: v as 'employee' | 'manager' | 'hr' }))}
+                  >
+                    <SelectTrigger className="min-w-[200px]">
+                      <SelectValue placeholder="Selecione o papel" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="hr">{ROLE_LABELS.hr}</SelectItem>
+                      <SelectItem value="manager">{ROLE_LABELS.manager}</SelectItem>
+                      <SelectItem value="employee">{ROLE_LABELS.employee}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               <div className="space-y-2">
-                <Label>Papel</Label>
-                <Select
-                  value={form.role}
-                  onValueChange={(v) => setForm((f) => ({ ...f, role: v as 'employee' | 'manager' | 'hr' }))}
-                >
-                  <SelectTrigger className="min-w-[200px]">
-                    <SelectValue placeholder="Selecione o papel" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="hr">{ROLE_LABELS.hr}</SelectItem>
-                    <SelectItem value="manager">{ROLE_LABELS.manager}</SelectItem>
-                    <SelectItem value="employee">{ROLE_LABELS.employee}</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="name">Nome</Label>
+                <Input
+                  id="name"
+                  value={form.name}
+                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                  placeholder="Nome completo"
+                  required
+                />
               </div>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="name">Nome</Label>
-              <Input
-                id="name"
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="Nome completo"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">E-mail</Label>
-              <Input
-                id="email"
-                type="email"
-                value={form.email}
-                onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-                placeholder="email@empresa.com"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="position">Cargo</Label>
-              <Input
-                id="position"
-                value={form.position}
-                onChange={(e) => setForm((f) => ({ ...f, position: e.target.value }))}
-                placeholder="Ex: Desenvolvedor"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Setor</Label>
-              <Select
-                value={form.department || undefined}
-                onValueChange={(v) => setForm((f) => ({ ...f, department: v }))}
-              >
-                <SelectTrigger className="min-w-[200px]">
-                  <SelectValue placeholder="Selecione o setor" />
-                </SelectTrigger>
-                <SelectContent>
-                  {DEFAULT_DEPARTMENTS.map((d) => (
-                    <SelectItem key={d} value={d}>
-                      {d}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="cost_center">Centro de Custo</Label>
-              <Input
-                id="cost_center"
-                value={form.cost_center}
-                onChange={(e) => setForm((f) => ({ ...f, cost_center: e.target.value }))}
-                placeholder="Ex: CC-001"
-              />
-            </div>
-
-            {canCreateUser() && (
               <div className="space-y-2">
-                <Label>Gestor / Equipe</Label>
+                <Label htmlFor="email">E-mail</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+                  placeholder="email@empresa.com"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="position">Cargo</Label>
+                <Input
+                  id="position"
+                  value={form.position}
+                  onChange={(e) => setForm((f) => ({ ...f, position: e.target.value }))}
+                  placeholder="Ex: Desenvolvedor"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Setor</Label>
                 <Select
-                  value={form.manager_id}
-                  onValueChange={(v) => setForm((f) => ({ ...f, manager_id: v }))}
-                  required={form.role === 'employee'}
+                  value={form.department || undefined}
+                  onValueChange={(v) => setForm((f) => ({ ...f, department: v }))}
                 >
                   <SelectTrigger className="min-w-[200px]">
-                    <SelectValue placeholder={form.role === 'hr' || form.role === 'manager' ? 'Opcional' : 'Selecione o gestor'} />
+                    <SelectValue placeholder="Selecione o setor" />
                   </SelectTrigger>
                   <SelectContent>
-                    {managers.map((m) => (
-                      <SelectItem key={m.id} value={m.id}>
-                        {m.name}
+                    {DEFAULT_DEPARTMENTS.map((d) => (
+                      <SelectItem key={d} value={d}>
+                        {d}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-            )}
+              <div className="space-y-2">
+                <Label htmlFor="cost_center">Centro de Custo</Label>
+                <Input
+                  id="cost_center"
+                  value={form.cost_center}
+                  onChange={(e) => setForm((f) => ({ ...f, cost_center: e.target.value }))}
+                  placeholder="Ex: CC-001"
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label>Foto (opcional)</Label>
-              <div className="flex items-center gap-4 flex-wrap">
-                <div className="shrink-0">
-                  {formAvatarPreviewUrl ? (
-                    <img
-                      src={formAvatarPreviewUrl}
-                      alt="Preview"
-                      className="h-16 w-16 rounded-full object-cover border border-border"
-                    />
-                  ) : (
-                    <div className="h-16 w-16 rounded-full bg-muted border border-border flex items-center justify-center text-muted-foreground text-xs">
-                      Sem foto
-                    </div>
-                  )}
+              {canCreateUser() && (
+                <div className="space-y-2">
+                  <Label>Gestor / Equipe</Label>
+                  <Select
+                    value={form.manager_id}
+                    onValueChange={(v) => setForm((f) => ({ ...f, manager_id: v }))}
+                    required={form.role === 'employee'}
+                  >
+                    <SelectTrigger className="min-w-[200px]">
+                      <SelectValue placeholder={form.role === 'hr' || form.role === 'manager' ? 'Opcional' : 'Selecione o gestor'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {managers.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>
+                          {m.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div className="flex flex-col gap-1">
-                  <input
-                    ref={formAvatarInputRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      e.target.value = '';
-                      if (!file) return;
-                      const err = validateAvatarFile(file);
-                      if (err) {
-                        toast.error(err);
-                        return;
-                      }
-                      if (formAvatarPreviewUrl) URL.revokeObjectURL(formAvatarPreviewUrl);
-                      setFormAvatarPreviewUrl(URL.createObjectURL(file));
-                      setFormAvatarFile(file);
-                    }}
-                    className="hidden"
-                  />
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => formAvatarInputRef.current?.click()}
-                      disabled={submitting}
-                    >
-                      <Upload className="w-4 h-4 mr-2" />
-                      Enviar foto
-                    </Button>
-                    {formAvatarPreviewUrl && (
+              )}
+
+              <div className="space-y-2">
+                <Label>Foto (opcional)</Label>
+                <div className="flex items-center gap-4 flex-wrap">
+                  <div className="shrink-0">
+                    {formAvatarPreviewUrl ? (
+                      <img
+                        src={formAvatarPreviewUrl}
+                        alt="Preview"
+                        className="h-16 w-16 rounded-full object-cover border border-border"
+                      />
+                    ) : (
+                      <div className="h-16 w-16 rounded-full bg-muted border border-border flex items-center justify-center text-muted-foreground text-xs">
+                        Sem foto
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <input
+                      ref={formAvatarInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = '';
+                        if (!file) return;
+                        const err = validateAvatarFile(file);
+                        if (err) {
+                          toast.error(err);
+                          return;
+                        }
+                        if (formAvatarPreviewUrl) URL.revokeObjectURL(formAvatarPreviewUrl);
+                        setFormAvatarPreviewUrl(URL.createObjectURL(file));
+                        setFormAvatarFile(file);
+                      }}
+                      className="hidden"
+                    />
+                    <div className="flex items-center gap-2">
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => {
-                          if (formAvatarPreviewUrl) URL.revokeObjectURL(formAvatarPreviewUrl);
-                          setFormAvatarPreviewUrl(null);
-                          setFormAvatarFile(null);
-                        }}
+                        onClick={() => formAvatarInputRef.current?.click()}
                         disabled={submitting}
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
                       >
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Remover
+                        <Upload className="w-4 h-4 mr-2" />
+                        Enviar foto
                       </Button>
-                    )}
+                      {formAvatarPreviewUrl && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            if (formAvatarPreviewUrl) URL.revokeObjectURL(formAvatarPreviewUrl);
+                            setFormAvatarPreviewUrl(null);
+                            setFormAvatarFile(null);
+                          }}
+                          disabled={submitting}
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Remover
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Máx. 5MB. JPG, PNG ou WebP.</p>
                   </div>
-                  <p className="text-xs text-muted-foreground">Máx. 5MB. JPG, PNG ou WebP.</p>
                 </div>
               </div>
-            </div>
 
-            <div className="flex justify-end gap-2 pt-4">
-              <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={submitting} className="gradient-hero">
-                {submitting ? 'Enviando...' : 'Enviar convite'}
-              </Button>
-            </div>
+              <div className="flex justify-end gap-2 pt-4">
+                <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={submitting} className="gradient-hero">
+                  {submitting ? 'Enviando...' : 'Enviar convite'}
+                </Button>
+              </div>
             </form>
           </div>
         </DialogContent>
@@ -1110,223 +1108,223 @@ export default function Colaboradores() {
           </DialogHeader>
           {editingProfile && (
             <div className="overflow-y-auto flex-1 min-h-0 -mx-4 px-4 sm:-mx-6 sm:px-6">
-            <form onSubmit={handleEditSubmit} className="space-y-4">
-              {isHR() && (
-                <div className="space-y-2">
-                  <Label>Foto</Label>
-                  <div className="flex items-center gap-4 flex-wrap">
-                    <div className="shrink-0">
-                      {editFormAvatarPreviewUrl ? (
-                        <img
-                          src={editFormAvatarPreviewUrl}
-                          alt="Preview"
-                          className="h-16 w-16 rounded-full object-cover border border-border"
+              <form onSubmit={handleEditSubmit} className="space-y-4">
+                {isHR() && (
+                  <div className="space-y-2">
+                    <Label>Foto</Label>
+                    <div className="flex items-center gap-4 flex-wrap">
+                      <div className="shrink-0">
+                        {editFormAvatarPreviewUrl ? (
+                          <img
+                            src={editFormAvatarPreviewUrl}
+                            alt="Preview"
+                            className="h-16 w-16 rounded-full object-cover border border-border"
+                          />
+                        ) : editFormAvatarRemove ? (
+                          <UserAvatar name={editingProfile.name} size="lg" className="h-16 w-16 border border-border" />
+                        ) : (
+                          <UserAvatar
+                            avatarUrl={editingProfile.avatar_url}
+                            avatarThumbUrl={editingProfile.avatar_thumb_url}
+                            name={editingProfile.name}
+                            size="lg"
+                            useThumb={false}
+                            className="h-16 w-16 border border-border"
+                          />
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <input
+                          ref={editFormAvatarInputRef}
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            e.target.value = '';
+                            if (!file) return;
+                            const err = validateAvatarFile(file);
+                            if (err) {
+                              toast.error(err);
+                              return;
+                            }
+                            if (editFormAvatarPreviewUrlRef.current) URL.revokeObjectURL(editFormAvatarPreviewUrlRef.current);
+                            const url = URL.createObjectURL(file);
+                            editFormAvatarPreviewUrlRef.current = url;
+                            setEditFormAvatarPreviewUrl(url);
+                            setEditFormAvatarFile(file);
+                            setEditFormAvatarRemove(false);
+                          }}
+                          className="hidden"
                         />
-                      ) : editFormAvatarRemove ? (
-                        <UserAvatar name={editingProfile.name} size="lg" className="h-16 w-16 border border-border" />
-                      ) : (
-                        <UserAvatar
-                          avatarUrl={editingProfile.avatar_url}
-                          avatarThumbUrl={editingProfile.avatar_thumb_url}
-                          name={editingProfile.name}
-                          size="lg"
-                          useThumb={false}
-                          className="h-16 w-16 border border-border"
-                        />
-                      )}
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <input
-                        ref={editFormAvatarInputRef}
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          e.target.value = '';
-                          if (!file) return;
-                          const err = validateAvatarFile(file);
-                          if (err) {
-                            toast.error(err);
-                            return;
-                          }
-                          if (editFormAvatarPreviewUrlRef.current) URL.revokeObjectURL(editFormAvatarPreviewUrlRef.current);
-                          const url = URL.createObjectURL(file);
-                          editFormAvatarPreviewUrlRef.current = url;
-                          setEditFormAvatarPreviewUrl(url);
-                          setEditFormAvatarFile(file);
-                          setEditFormAvatarRemove(false);
-                        }}
-                        className="hidden"
-                      />
-                      <div className="flex items-center gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => editFormAvatarInputRef.current?.click()}
-                          disabled={submitting}
-                        >
-                          <Upload className="w-4 h-4 mr-2" />
-                          Alterar foto
-                        </Button>
-                        {(editingProfile.avatar_url || editFormAvatarPreviewUrl) && !editFormAvatarRemove && (
+                        <div className="flex items-center gap-2">
                           <Button
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={() => {
-                              if (editFormAvatarPreviewUrlRef.current) {
-                                URL.revokeObjectURL(editFormAvatarPreviewUrlRef.current);
-                                editFormAvatarPreviewUrlRef.current = null;
-                              }
-                              setEditFormAvatarPreviewUrl(null);
-                              setEditFormAvatarFile(null);
-                              setEditFormAvatarRemove(true);
-                            }}
+                            onClick={() => editFormAvatarInputRef.current?.click()}
                             disabled={submitting}
-                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
                           >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Remover
+                            <Upload className="w-4 h-4 mr-2" />
+                            Alterar foto
                           </Button>
-                        )}
+                          {(editingProfile.avatar_url || editFormAvatarPreviewUrl) && !editFormAvatarRemove && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                if (editFormAvatarPreviewUrlRef.current) {
+                                  URL.revokeObjectURL(editFormAvatarPreviewUrlRef.current);
+                                  editFormAvatarPreviewUrlRef.current = null;
+                                }
+                                setEditFormAvatarPreviewUrl(null);
+                                setEditFormAvatarFile(null);
+                                setEditFormAvatarRemove(true);
+                              }}
+                              disabled={submitting}
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Remover
+                            </Button>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">Máx. 5MB. JPG, PNG ou WebP.</p>
                       </div>
-                      <p className="text-xs text-muted-foreground">Máx. 5MB. JPG, PNG ou WebP.</p>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {canChangeRoleAndStatus() && (
-                <>
-                  <div className="space-y-2">
-                    <Label>Nome</Label>
-                    <Input
-                      value={editForm.name}
-                      onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
-                      placeholder="Nome completo"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-email">E-mail</Label>
-                    <Input
-                      id="edit-email"
-                      type="email"
-                      value={editForm.email}
-                      onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Cargo</Label>
-                    <Input
-                      value={editForm.position}
-                      onChange={(e) => setEditForm((f) => ({ ...f, position: e.target.value }))}
-                      placeholder="Ex: Desenvolvedor"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Setor</Label>
-                    <Select
-                      value={editForm.department || undefined}
-                      onValueChange={(v) => setEditForm((f) => ({ ...f, department: v }))}
-                    >
-                      <SelectTrigger className="min-w-[200px]">
-                        <SelectValue placeholder="Selecione o setor" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Array.from(
-                          new Set([
-                            ...(editForm.department &&
-                              !(DEFAULT_DEPARTMENTS as readonly string[]).includes(editForm.department)
-                              ? [editForm.department]
-                              : []),
-                            ...DEFAULT_DEPARTMENTS,
-                          ])
-                        ).map((d) => (
-                          <SelectItem key={d} value={d}>
-                            {d}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-cost_center">Centro de Custo</Label>
-                    <Input
-                      id="edit-cost_center"
-                      value={editForm.cost_center}
-                      onChange={(e) => setEditForm((f) => ({ ...f, cost_center: e.target.value }))}
-                      placeholder="Ex: CC-001"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Papel</Label>
-                    <Select
-                      value={editForm.role}
-                      onValueChange={(v) => setEditForm((f) => ({ ...f, role: v as 'employee' | 'manager' | 'hr' }))}
-                    >
-                      <SelectTrigger className="min-w-[200px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="hr">{ROLE_LABELS.hr}</SelectItem>
-                        <SelectItem value="manager">{ROLE_LABELS.manager}</SelectItem>
-                        <SelectItem value="employee">{ROLE_LABELS.employee}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Status</Label>
-                    <Select
-                      value={editForm.is_active ? 'active' : 'inactive'}
-                      onValueChange={(v) => setEditForm((f) => ({ ...f, is_active: v === 'active' }))}
-                    >
-                      <SelectTrigger className="min-w-[200px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="active">Ativo</SelectItem>
-                        <SelectItem value="inactive">Inativo</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </>
-              )}
-              <div className="space-y-2">
-                <Label>Gestor / Equipe</Label>
-                <Select
-                  value={
-                    editForm.manager_id && managers.some((m) => m.id === editForm.manager_id)
-                      ? editForm.manager_id
-                      : EMPTY_MANAGER_VALUE
-                  }
-                  onValueChange={(v) =>
-                    setEditForm((f) => ({ ...f, manager_id: v === EMPTY_MANAGER_VALUE ? '' : v }))
-                  }
-                  required={canChangeRoleAndStatus() ? editForm.role === 'employee' : editingProfile?.role === 'employee'}
-                >
-                  <SelectTrigger className="min-w-[200px]">
-                    <SelectValue placeholder={editForm.role === 'manager' || editForm.role === 'hr' ? 'Opcional (gestor/RH não precisa)' : 'Selecione o gestor'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={EMPTY_MANAGER_VALUE}>—</SelectItem>
-                    {managers.map((m) => (
-                      <SelectItem key={m.id} value={m.id}>
-                        {m.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex justify-end gap-2 pt-4">
-                <Button type="button" variant="outline" onClick={() => setEditModalOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button type="submit" disabled={submitting} className="gradient-hero">
-                  {submitting ? 'Salvando...' : 'Salvar'}
-                </Button>
-              </div>
-            </form>
+                {canChangeRoleAndStatus() && (
+                  <>
+                    <div className="space-y-2">
+                      <Label>Nome</Label>
+                      <Input
+                        value={editForm.name}
+                        onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                        placeholder="Nome completo"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-email">E-mail</Label>
+                      <Input
+                        id="edit-email"
+                        type="email"
+                        value={editForm.email}
+                        onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Cargo</Label>
+                      <Input
+                        value={editForm.position}
+                        onChange={(e) => setEditForm((f) => ({ ...f, position: e.target.value }))}
+                        placeholder="Ex: Desenvolvedor"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Setor</Label>
+                      <Select
+                        value={editForm.department || undefined}
+                        onValueChange={(v) => setEditForm((f) => ({ ...f, department: v }))}
+                      >
+                        <SelectTrigger className="min-w-[200px]">
+                          <SelectValue placeholder="Selecione o setor" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from(
+                            new Set([
+                              ...(editForm.department &&
+                                !(DEFAULT_DEPARTMENTS as readonly string[]).includes(editForm.department)
+                                ? [editForm.department]
+                                : []),
+                              ...DEFAULT_DEPARTMENTS,
+                            ])
+                          ).map((d) => (
+                            <SelectItem key={d} value={d}>
+                              {d}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-cost_center">Centro de Custo</Label>
+                      <Input
+                        id="edit-cost_center"
+                        value={editForm.cost_center}
+                        onChange={(e) => setEditForm((f) => ({ ...f, cost_center: e.target.value }))}
+                        placeholder="Ex: CC-001"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Papel</Label>
+                      <Select
+                        value={editForm.role}
+                        onValueChange={(v) => setEditForm((f) => ({ ...f, role: v as 'employee' | 'manager' | 'hr' }))}
+                      >
+                        <SelectTrigger className="min-w-[200px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="hr">{ROLE_LABELS.hr}</SelectItem>
+                          <SelectItem value="manager">{ROLE_LABELS.manager}</SelectItem>
+                          <SelectItem value="employee">{ROLE_LABELS.employee}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Status</Label>
+                      <Select
+                        value={editForm.is_active ? 'active' : 'inactive'}
+                        onValueChange={(v) => setEditForm((f) => ({ ...f, is_active: v === 'active' }))}
+                      >
+                        <SelectTrigger className="min-w-[200px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="active">Ativo</SelectItem>
+                          <SelectItem value="inactive">Inativo</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                )}
+                <div className="space-y-2">
+                  <Label>Gestor / Equipe</Label>
+                  <Select
+                    value={
+                      editForm.manager_id && managers.some((m) => m.id === editForm.manager_id)
+                        ? editForm.manager_id
+                        : EMPTY_MANAGER_VALUE
+                    }
+                    onValueChange={(v) =>
+                      setEditForm((f) => ({ ...f, manager_id: v === EMPTY_MANAGER_VALUE ? '' : v }))
+                    }
+                    required={canChangeRoleAndStatus() ? editForm.role === 'employee' : editingProfile?.role === 'employee'}
+                  >
+                    <SelectTrigger className="min-w-[200px]">
+                      <SelectValue placeholder={editForm.role === 'manager' || editForm.role === 'hr' ? 'Opcional (gestor/RH não precisa)' : 'Selecione o gestor'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={EMPTY_MANAGER_VALUE}>—</SelectItem>
+                      {managers.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>
+                          {m.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button type="button" variant="outline" onClick={() => setEditModalOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={submitting} className="gradient-hero">
+                    {submitting ? 'Salvando...' : 'Salvar'}
+                  </Button>
+                </div>
+              </form>
             </div>
           )}
         </DialogContent>
