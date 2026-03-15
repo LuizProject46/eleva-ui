@@ -445,9 +445,14 @@ export default function Colaboradores() {
       fetchProfiles();
       fetchManagers();
     } catch (err) {
-      toast.error('Erro ao enviar convite. Tente novamente.');
+      if (err instanceof Error && err.message.includes(USER_LIMIT_ERROR_MARKER)) {
+        setUserLimitAlertMessage(err.message);
+      } else {
+        toast.error('Erro ao enviar convite. Tente novamente.');
+      }
+    } finally {
+      setSubmitting(false);
     }
-    setSubmitting(false);
   };
 
   const openEditModal = (p: Profile) => {
