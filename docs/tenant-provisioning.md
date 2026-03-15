@@ -15,6 +15,8 @@ This document describes how to create new tenants (companies) on the platform an
 The backoffice and tenant provisioning (when called from the UI) are restricted to **platform administrators**.
 
 - A user is a platform admin if their profile has `is_platform_admin = true` in the `profiles` table.
+- **Platform users** have no tenant: their `tenant_id` is NULL and must never be assigned. They can log in and access the app from any tenant slug (for branding/context) and can open the backoffice to manage all tenants.
+- **Tenant users** (normal users) have a `tenant_id` and are restricted to the tenant identified by the URL slug. Tenant slug vs. user tenant is enforced by **TenantAccessGuard** and by AuthContext (`loadUser` / `login`): tenant users on a different slug are redirected to login with a message that access is only allowed for their company.
 - There is no self-service; the first platform admin(s) must be set manually in the database.
 
 ### Setting the first platform admin
@@ -115,10 +117,12 @@ Optional: add `"slug": "acme"` to the JSON.
 - **`/backoffice/tenants/new`** – Form to create a tenant (calls the same provision-tenant function). Only platform admins.
 - **`/backoffice/tenants/:tenantId`** – Tenant detail (company info, user count, limit, first HR admin). Only platform admins.
 
-Access to these routes is enforced by the **BackofficeGuard**: the user must be authenticated and have `is_platform_admin = true`; otherwise they are redirected to `/dashboard` or `/login`.
+Access to these routes is enforced by the **BackofficeGuard**: the user must be authenticated and have `is_platform_admin = true`; otherwise they are redirected to `/dashboard` or `/login`. Tenant users cannot access backoffice; only platform users can.
 
 ## Security summary
 
 - Only users with `profiles.is_platform_admin = true` can open backoffice routes and call the provision-tenant function with a JWT.
+- Platform users keep `tenant_id` NULL; the app never assigns them a tenant (AuthContext skips `ensureProfileTenant` for platform admins).
+- Tenant isolation: **TenantAccessGuard** and AuthContext ensure tenant users can only access the tenant that matches the URL slug; wrong slug redirects to login with `?reason=wrong_tenant`.
 - Scripts or servers must know `PROVISIONING_SECRET` to call provision-tenant without a user session. Restrict and rotate this secret.
-- RLS ensures tenant data is only readable/writable by platform admins (and existing HR policy for their own tenant).
+- RLS: tenant-scoped tables restrict access by `get_my_profile_tenant_id()`. Platform admins use SECURITY DEFINER RPCs for backoffice (e.g. `get_backoffice_tenants`); they do not get direct client access to other tenants’ data via RLS.

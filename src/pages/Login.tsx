@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBrand } from '@/contexts/BrandContext';
 import { Button } from '@/components/ui/button';
@@ -29,10 +29,19 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const { login } = useAuth();
+  const { login, logout } = useAuth();
   const { brand } = useBrand();
   const { tenant } = useTenant();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams.get('reason') === 'wrong_tenant') {
+      void logout();
+      setError('Acesso permitido apenas para sua empresa. Use o link de login da sua empresa.');
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams, logout]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

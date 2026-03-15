@@ -12,6 +12,7 @@ import {
   BackofficeTenantDetail,
 } from "@/pages/backoffice";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { TenantAccessGuard } from "@/guards/TenantAccessGuard";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import { BrandProvider, useBrand } from "@/contexts/BrandContext";
 import { TenantProvider } from "@/contexts/TenantContext";
@@ -82,7 +83,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />;
   }
 
-  return <>{children}</>;
+  return <TenantAccessGuard>{children}</TenantAccessGuard>;
 }
 
 /** Map pathname to tab page label for document title. */

@@ -122,7 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return null;
       }
 
-      if (tenant && !profile.tenantId) {
+      if (tenant && !profile.tenantId && !profile.isPlatformAdmin) {
         await ensureProfileTenant(supabaseUser.id);
         const updated = await fetchProfile(supabaseUser.id);
         if (updated) {
@@ -232,7 +232,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         throw new Error('Perfil não encontrado ou acesso não permitido para este portal. Entre em contato com o suporte.');
       }
-      if (tenant && !profile.tenantId) {
+      if (tenant && !profile.tenantId && !profile.isPlatformAdmin) {
         await ensureProfileTenant(data.user.id);
         profile = await fetchProfile(data.user.id);
         if (profile) setUser(profile);
