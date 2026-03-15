@@ -105,7 +105,7 @@ $$;
 INSERT INTO tenants (slug, company_name, is_active)
 VALUES (
   'eleva-ui-vercel',
-  'Facholi',
+  'Eleva',
   true
 )
 ON CONFLICT (slug) DO NOTHING;

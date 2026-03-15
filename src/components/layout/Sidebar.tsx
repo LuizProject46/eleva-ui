@@ -15,6 +15,7 @@ import {
   Gamepad2,
   Lock,
   GraduationCap,
+  Building2,
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
@@ -83,7 +84,7 @@ function getRoleLabel(role: string) {
 }
 
 function SidebarContent() {
-  const { user, logout } = useAuth();
+  const { user, logout, isPlatformAdmin } = useAuth();
   const { brand } = useBrand();
   const location = useLocation();
 
@@ -196,6 +197,21 @@ function SidebarContent() {
 
       {/* Bottom Actions */}
       <div className="p-3 border-t border-sidebar-border space-y-1">
+        {isPlatformAdmin() && (
+          <Link
+            to="/backoffice/tenants"
+            className={cn(
+              'flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200',
+              location.pathname.startsWith('/backoffice')
+                ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-lg'
+                : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
+            )}
+          >
+            <Building2 className="w-5 h-5" />
+            <span className="font-medium text-sm">Backoffice</span>
+            {location.pathname.startsWith('/backoffice') && <ChevronRight className="w-4 h-4 ml-auto" />}
+          </Link>
+        )}
         <Link
           to="/settings"
           className="flex items-center gap-3 px-4 py-3 rounded-xl text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-all duration-200"

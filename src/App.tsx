@@ -4,6 +4,13 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import {
+  BackofficeGuard,
+  BackofficeLayout,
+  BackofficeTenantList,
+  BackofficeTenantCreate,
+  BackofficeTenantDetail,
+} from "@/pages/backoffice";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import { BrandProvider, useBrand } from "@/contexts/BrandContext";
@@ -90,6 +97,7 @@ function getPageTitle(pathname: string): string {
     "/login": "Login",
     "/forgot-password": "Esqueci a senha",
     "/reset-password": "Redefinir senha",
+    "/backoffice": "Backoffice",
     "/dashboard": "Dashboard",
     "/onboarding": "Onboarding",
     "/evaluation": "Avaliação",
@@ -140,6 +148,12 @@ function AppRoutes() {
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="/certificates" element={<ProtectedRoute><Certificates /></ProtectedRoute>} />
       <Route path="/verificar" element={<Verificar />} />
+      <Route path="/backoffice" element={<BackofficeGuard><BackofficeLayout /></BackofficeGuard>}>
+        <Route index element={<Navigate to="/backoffice/tenants" replace />} />
+        <Route path="tenants" element={<BackofficeTenantList />} />
+        <Route path="tenants/new" element={<BackofficeTenantCreate />} />
+        <Route path="tenants/:tenantId" element={<BackofficeTenantDetail />} />
+      </Route>
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

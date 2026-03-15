@@ -48,8 +48,8 @@ const TenantContext = createContext<TenantContextType | undefined>(undefined);
 const defaultTenantConfig: TenantConfig = {
   id: '',
   slug: DEFAULT_SLUG,
-  companyName: 'Facholi',
-  logoUrl: '/assets/facholi-logo.png',
+  companyName: 'Eleva',
+  logoUrl: '/assets/eleva-logo.png',
   primaryColor: '145 75% 38%',
   accentColor: '24 95% 60%',
   isActive: true,

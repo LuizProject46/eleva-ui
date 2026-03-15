@@ -24,8 +24,8 @@ interface BrandContextType {
 }
 
 const defaultBrand: BrandConfig = {
-  companyName: 'Facholi',
-  logoUrl: '/assets/facholi-logo.png',
+  companyName: 'Eleva',
+  logoUrl: '/assets/eleva-logo.png',
   primaryColor: DEFAULT_PRIMARY_HEX,
   accentColor: DEFAULT_ACCENT_HEX,
 };

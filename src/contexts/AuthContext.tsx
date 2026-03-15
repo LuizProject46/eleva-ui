@@ -16,6 +16,7 @@ export interface User {
   department?: string;
   position?: string;
   tenantId?: string;
+  isPlatformAdmin?: boolean;
 }
 
 /** Minimal profile shape for permission checks (e.g. manager_id for canEditUser) */
@@ -33,6 +34,7 @@ interface AuthContextType {
   refreshUser: () => Promise<void>;
   isHR: () => boolean;
   isManager: () => boolean;
+  isPlatformAdmin: () => boolean;
   canManagePdi: () => boolean;
   canManageUsers: () => boolean;
   canCreateUser: () => boolean;
@@ -52,6 +54,7 @@ function mapProfileToUser(profile: {
   avatar_url?: string | null;
   avatar_thumb_url?: string | null;
   tenant_id?: string | null;
+  is_platform_admin?: boolean | null;
 }): User {
   return {
     id: profile.id,
@@ -63,20 +66,21 @@ function mapProfileToUser(profile: {
     avatar: profile.avatar_url ?? undefined,
     avatarThumbUrl: profile.avatar_thumb_url ?? undefined,
     tenantId: profile.tenant_id ?? undefined,
+    isPlatformAdmin: profile.is_platform_admin === true,
   };
 }
 
 async function fetchProfile(userId: string): Promise<User | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, email, name, role, department, position, avatar_url, avatar_thumb_url, tenant_id, is_active')
+    .select('id, email, name, role, department, position, avatar_url, avatar_thumb_url, tenant_id, is_active, is_platform_admin')
     .eq('id', userId)
     .maybeSingle();
 
   if (error) {
     const { data: fallback } = await supabase
       .from('profiles')
-      .select('id, email, name, role, department, position, avatar_url, avatar_thumb_url, is_active')
+      .select('id, email, name, role, department, position, avatar_url, avatar_thumb_url, tenant_id, is_active, is_platform_admin')
       .eq('id', userId)
       .maybeSingle();
     if (fallback) {
@@ -114,7 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const profile = await fetchProfile(supabaseUser.id);
       if (!profile) return null;
 
-      if (tenant && profile.tenantId && profile.tenantId !== tenant.id) {
+      if (!profile.isPlatformAdmin && tenant && profile.tenantId && profile.tenantId !== tenant.id) {
         return null;
       }
 
@@ -253,6 +257,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isHR = () => user?.role === 'hr';
   const isManager = () => user?.role === 'manager';
+  const isPlatformAdmin = () => user?.isPlatformAdmin === true;
   const canManagePdi = () => user?.role === 'hr' || user?.role === 'manager';
   const canManageUsers = () => user?.role === 'hr' || user?.role === 'manager';
   const canCreateUser = () => user?.role === 'hr';
@@ -275,6 +280,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         refreshUser,
         isHR,
         isManager,
+        isPlatformAdmin,
         canManagePdi,
         canManageUsers,
         canCreateUser,
