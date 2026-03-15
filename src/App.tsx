@@ -3,10 +3,10 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
-import { BrandProvider } from "@/contexts/BrandContext";
+import { BrandProvider, useBrand } from "@/contexts/BrandContext";
 import { TenantProvider } from "@/contexts/TenantContext";
 import Login from "@/pages/Login";
 import ForgotPassword from "@/pages/ForgotPassword";
@@ -78,8 +78,42 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+/** Map pathname to tab page label for document title. */
+function getPageTitle(pathname: string): string {
+  if (pathname.startsWith("/employees/") && pathname !== "/employees") return "Perfil";
+  if (pathname.startsWith("/pdis/") && pathname !== "/pdis") return "PDI";
+  if (pathname.startsWith("/courses/assignment/")) {
+    if (pathname.includes("/questionnaire")) return "Questionário";
+    if (pathname.includes("/start")) return "Curso";
+  }
+  const map: Record<string, string> = {
+    "/login": "Login",
+    "/forgot-password": "Esqueci a senha",
+    "/reset-password": "Redefinir senha",
+    "/dashboard": "Dashboard",
+    "/onboarding": "Onboarding",
+    "/evaluation": "Avaliação",
+    "/mentoring": "Mentoria",
+    "/assessment": "Avaliação",
+    "/employees": "Colaboradores",
+    "/pdis": "PDIs",
+    "/courses": "Cursos",
+    "/settings": "Configurações",
+    "/certificates": "Certificados",
+    "/verificar": "Verificar",
+  };
+  return map[pathname] ?? "App";
+}
+
 function AppRoutes() {
   const { isAuthenticated, isLoading } = useAuth();
+  const location = useLocation();
+  const { brand } = useBrand();
+
+  useEffect(() => {
+    const pageTitle = getPageTitle(location.pathname);
+    document.title = pageTitle ? `${brand.companyName} - ${pageTitle}` : brand.companyName;
+  }, [location.pathname, brand.companyName]);
 
   if (isLoading) {
     return <AuthLoadingScreen />;

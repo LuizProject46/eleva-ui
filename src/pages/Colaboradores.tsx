@@ -41,6 +41,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Filters } from '@/components/filters/Filters';
 import {
   AlertDialog,
+  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -71,6 +72,9 @@ const DEFAULT_DEPARTMENTS = [
 
 /** Sentinel para Select Radix: valor vazio causa bug no click; deve ser uma opção válida */
 const EMPTY_MANAGER_VALUE = '__none__';
+
+/** Substring to detect backend "user limit reached" error (403 from invite-employee). */
+const USER_LIMIT_ERROR_MARKER = 'limite de usuários';
 
 interface Profile {
   id: string;
@@ -142,6 +146,7 @@ export default function Colaboradores() {
   const [page, setPage] = useState(1);
   const [deleteConfirmProfile, setDeleteConfirmProfile] = useState<Profile | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [userLimitAlertMessage, setUserLimitAlertMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -404,7 +409,12 @@ export default function Colaboradores() {
       if (error) throw error;
 
       if (data?.error) {
-        toast.error(data.error);
+        const isUserLimitReached = data.error.includes(USER_LIMIT_ERROR_MARKER);
+        if (isUserLimitReached) {
+          setUserLimitAlertMessage(data.error);
+        } else {
+          toast.error(data.error);
+        }
         setSubmitting(false);
         return;
       }
@@ -1047,6 +1057,22 @@ export default function Colaboradores() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!userLimitAlertMessage} onOpenChange={(open) => !open && setUserLimitAlertMessage(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Limite de usuários atingido</AlertDialogTitle>
+            <AlertDialogDescription>
+              {userLimitAlertMessage}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setUserLimitAlertMessage(null)}>
+              Entendi
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={!!deleteConfirmProfile} onOpenChange={(open) => !open && setDeleteConfirmProfile(null)}>
         <AlertDialogContent>

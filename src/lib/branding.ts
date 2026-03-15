@@ -6,6 +6,8 @@
 export const BRANDING_CACHE_KEY = 'branding_config';
 
 export const DEFAULT_PRIMARY_HEX = '#2d7a4a';
+/** Default favicon when no custom company logo is set. */
+export const DEFAULT_FAVICON = '/favicon.svg';
 export const DEFAULT_ACCENT_HEX = '#f59e0b';
 
 export interface BrandingConfig {
@@ -105,6 +107,22 @@ export function hslToHex(hslStr: string): string {
 }
 
 /**
+ * Update the document favicon to the given logo URL (same source as whitelabel logo).
+ * If logoUrl is absent, use the default platform favicon. Only runs in browser.
+ * Call when branding/tenant changes; not on every route.
+ */
+export function applyFavicon(logoUrl: string | undefined): void {
+  if (typeof document === 'undefined') return;
+  let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+  if (!link) {
+    link = document.createElement('link');
+    link.rel = 'icon';
+    document.head.appendChild(link);
+  }
+  link.href = logoUrl?.trim() ? logoUrl : DEFAULT_FAVICON;
+}
+
+/**
  * Apply branding to CSS variables. Primary in hex sets --color-primary and --primary (HSL).
  * Call synchronously on bootstrap from cache to avoid flicker.
  */
@@ -142,6 +160,8 @@ export function applyBrandingToCss(config: Partial<BrandingConfig>): void {
     root.style.setProperty('--brand-accent', accentHsl);
     root.style.setProperty('--brand-accent-light', accentHsl.replace(/\d+%$/, '65%'));
   }
+
+  applyFavicon(config.logoUrl);
 }
 
 /**
@@ -153,8 +173,12 @@ export function applyBrandingCacheToCss(): void {
     const raw = localStorage.getItem(BRANDING_CACHE_KEY);
     if (!raw) return;
     const config = JSON.parse(raw) as Partial<BrandingConfig>;
-    if (config && (config.primaryColor || config.accentColor)) {
-      applyBrandingToCss(config);
+    if (config) {
+      if (config.primaryColor || config.accentColor) {
+        applyBrandingToCss(config);
+      } else {
+        applyFavicon(config.logoUrl);
+      }
     }
   } catch {
     // ignore invalid cache

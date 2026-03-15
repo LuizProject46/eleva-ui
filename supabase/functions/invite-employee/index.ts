@@ -3,6 +3,45 @@ import { corsHeaders } from '../_shared/cors.ts';
 
 type InviteRole = 'employee' | 'manager' | 'hr';
 
+const USER_LIMIT_REACHED_MESSAGE = 'A empresa atingiu o limite de usuários do plano. Entre em contato para aumentar o limite.';
+
+/** Check tenant user limit. Returns error when at or over limit so new user cannot be added. */
+async function checkTenantUserLimit(
+  supabaseAdmin: ReturnType<typeof createClient>,
+  tenantId: string
+): Promise<{ allowed: boolean; error?: string }> {
+  const { data: tenant, error: tenantError } = await supabaseAdmin
+    .from('tenants')
+    .select('max_users')
+    .eq('id', tenantId)
+    .single();
+
+  if (tenantError || !tenant) {
+    return { allowed: true };
+  }
+
+  const maxUsers = tenant.max_users as number | null | undefined;
+  if (maxUsers == null) {
+    return { allowed: true };
+  }
+
+  const { count, error: countError } = await supabaseAdmin
+    .from('profiles')
+    .select('*', { count: 'exact', head: true })
+    .eq('tenant_id', tenantId)
+    .eq('is_active', true);
+
+  if (countError || count == null) {
+    return { allowed: true };
+  }
+
+  if (count >= maxUsers) {
+    return { allowed: false, error: USER_LIMIT_REACHED_MESSAGE };
+  }
+
+  return { allowed: true };
+}
+
 interface InviteBody {
   email: string;
   name: string;
@@ -125,6 +164,14 @@ Deno.serve(async (req) => {
       );
     }
 
+    const limitCheck = await checkTenantUserLimit(supabaseAdmin, tenantId);
+    if (!limitCheck.allowed) {
+      return new Response(
+        JSON.stringify({ error: limitCheck.error ?? USER_LIMIT_REACHED_MESSAGE }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     let inviteData: { user?: { id: string; email?: string } } | null = null;
     let inviteError: { message?: string } | null = null;
 
@@ -146,6 +193,13 @@ Deno.serve(async (req) => {
       const msg = inviteError.message ?? '';
 
       if (isEmailRateLimitError(msg)) {
+        const rateLimitLimitCheck = await checkTenantUserLimit(supabaseAdmin, tenantId);
+        if (!rateLimitLimitCheck.allowed) {
+          return new Response(
+            JSON.stringify({ error: rateLimitLimitCheck.error ?? USER_LIMIT_REACHED_MESSAGE }),
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
         const { data: createData, error: createError } = await supabaseAdmin.auth.admin.createUser({
           email,
           password: randomPassword(),
