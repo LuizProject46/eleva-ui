@@ -50,6 +50,7 @@ export default function Login() {
 
     try {
       await login(email, password);
+
       navigate('/dashboard');
     } catch (err) {
       setError(getAuthErrorMessage(err as { message?: string; status?: number }));

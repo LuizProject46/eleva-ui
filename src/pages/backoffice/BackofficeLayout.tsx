@@ -1,7 +1,11 @@
 import { Outlet, Link } from 'react-router-dom';
 import { Building2 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
 
 export function BackofficeLayout() {
+  const { logout } = useAuth();
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card">
@@ -26,6 +30,10 @@ export function BackofficeLayout() {
             >
               Voltar ao app
             </Link>
+
+            <Button onClick={logout} className='bg-destructive text-destructive-foreground hover:bg-destructive/90'>
+              Sair
+            </Button>
           </nav>
         </div>
       </header>

@@ -28,8 +28,9 @@ import {
   Send,
   UserCircle,
 } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { useEffect } from 'react';
 
 const CLOSE_TO_DEADLINE_DAYS = 7;
 
@@ -133,6 +134,13 @@ export default function Dashboard() {
   const recentActivity = useRecentActivity();
   const employeePdiSummary = useEmployeePdiSummary();
   const evaluationCounts = useEvaluationCounts();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user?.isPlatformAdmin) {
+      navigate ('/backoffice');
+    }
+  }, [user?.isPlatformAdmin]);
 
   return (
     <MainLayout>

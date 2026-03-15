@@ -135,7 +135,7 @@ function SidebarContent() {
               {user?.name}
             </p>
             <p className="text-xs text-sidebar-foreground/60 truncate">
-              {roleLabel}
+              {user?.isPlatformAdmin ? 'Administrador' : roleLabel}
             </p>
           </div>
         </div>
