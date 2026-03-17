@@ -242,7 +242,11 @@ export default function PdiListPage() {
                     <TableRow>
                       <TableHead>Título</TableHead>
                       <TableHead>Tipo</TableHead>
-                      <TableHead>Colaborador</TableHead>
+
+                      {canCreate && (
+                        <TableHead>Colaborador</TableHead>
+                      )}
+
                       <TableHead>Data de criação</TableHead>
                       <TableHead className="w-[120px] text-right">
                         Ações
@@ -256,19 +260,21 @@ export default function PdiListPage() {
                           {pdi.title ?? employeeProfiles[pdi.employee_id]?.name ?? 'PDI'}
                         </TableCell>
                         <TableCell>{PDI_TYPE_LABELS[pdi.type] ?? pdi.type}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <UserAvatar
-                              avatarUrl={employeeProfiles[pdi.employee_id]?.avatar_url}
-                              avatarThumbUrl={employeeProfiles[pdi.employee_id]?.avatar_thumb_url}
-                              name={employeeProfiles[pdi.employee_id]?.name ?? pdi.employee_id}
-                              size="sm"
-                            />
-                            <Link to={`/employees/${pdi.employee_id}`} className="text-primary hover:underline">
-                              {employeeProfiles[pdi.employee_id]?.name ?? pdi.employee_id}
-                            </Link>
-                          </div>
-                        </TableCell>
+                        {canCreate && (
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <UserAvatar
+                                avatarUrl={employeeProfiles[pdi.employee_id]?.avatar_url}
+                                avatarThumbUrl={employeeProfiles[pdi.employee_id]?.avatar_thumb_url}
+                                name={employeeProfiles[pdi.employee_id]?.name ?? pdi.employee_id}
+                                size="sm"
+                              />
+                              <Link to={`/employees/${pdi.employee_id}`} className="text-primary hover:underline">
+                                {employeeProfiles[pdi.employee_id]?.name ?? pdi.employee_id}
+                              </Link>
+                            </div>
+                          </TableCell>
+                        )}
                         <TableCell>{new Date(pdi.created_at).toLocaleDateString('pt-BR')}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
