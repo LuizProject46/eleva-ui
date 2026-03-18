@@ -1,10 +1,18 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+/**
+ * PDI list grid: performance notes
+ * - List + progress use React Query with staleTime 60s / gcTime 5m to avoid duplicate fetches on focus.
+ * - Profile fetch key is derived from sorted employee ids on the current page (deps align with `pdis`).
+ * - Rows are memoized (`PdiListTableRow`); PDF download still updates all rows’ disabled state when any download runs.
+ * - Validate with React DevTools Profiler (e.g. open dialog vs. idle row renders).
+ */
+import { useState, useEffect, useCallback, useMemo, useRef, type MouseEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePdiPermissions } from '@/modules/pdi/usePdiPermissions';
 import { supabase } from '@/lib/supabase';
-import type { Pdi } from '@/types/pdi';
+import type { PdiListRow } from '@/types/pdi';
 import {
   Table,
   TableBody,
@@ -30,43 +38,54 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ClipboardList, Eye, Pencil, Plus } from 'lucide-react';
+import { ClipboardList, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { CreatePdiDialog } from '@/components/pdi/CreatePdiDialog';
-import { UserAvatar } from '@/components/UserAvatar';
 import { PdiFilters } from '@/components/filters/PdiFilters';
 import type { AsyncSearchOption } from '@/components/async/AsyncSearchCombobox';
-import { PDI_TYPE_LABELS } from '@/constants/pdiTypes';
 
 import { usePdis } from '@/modules/pdi/hooks/usePdis';
+import {
+  usePdiListProgress,
+  PDI_LIST_PROGRESS_DEFAULT,
+} from '@/modules/pdi/hooks/usePdiListProgress';
+import { PdiListTableRow } from '@/modules/pdi/components/PdiListTableRow';
+import { usePdiPdfDownload } from '@/modules/pdi/hooks/usePdiPdfDownload';
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50];
 
 export default function PdiListPage() {
   const navigate = useNavigate();
-  const { user, canManagePdi } = useAuth();
+  const { user } = useAuth();
+  const { downloadPdiPdf, downloadingPdiId } = usePdiPdfDownload();
+  const { listMode, canCreatePdi } = usePdiPermissions();
 
   const [employeeProfiles, setEmployeeProfiles] = useState<
     Record<string, { name: string; avatar_url?: string | null; avatar_thumb_url?: string | null }>
   >({});
+  const [isProfilesLoading, setIsProfilesLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterEmployee, setFilterEmployee] = useState<AsyncSearchOption | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
-  const canCreate = canManagePdi();
-  const isEmployeeView = !canCreate;
-  const initialEmployeeFilterSet = useRef(false);
+  const canCreate = canCreatePdi;
+  const showEmployeeFilter = listMode === 'hr' || listMode === 'manager';
+  const showEmployeeColumn = listMode === 'hr' || listMode === 'manager';
+  const collaboratorDefaultStatusSet = useRef(false);
 
   useEffect(() => {
-    if (isEmployeeView && !initialEmployeeFilterSet.current) {
-      initialEmployeeFilterSet.current = true;
+    if (listMode === 'collaborator' && !collaboratorDefaultStatusSet.current) {
+      collaboratorDefaultStatusSet.current = true;
       setFilterStatus('active');
     }
-  }, [isEmployeeView]);
+  }, [listMode]);
 
-  const employeeIdFilter = isEmployeeView ? user?.id : filterEmployee?.id ?? undefined;
+  const employeeIdFilter =
+    listMode === 'collaborator'
+      ? user?.id
+      : filterEmployee?.id ?? undefined;
   const offset = (page - 1) * pageSize;
 
   const { data, isLoading, isError } = usePdis({
@@ -76,31 +95,49 @@ export default function PdiListPage() {
     offset,
   });
 
-  const pdis = (data?.data ?? []) as Pdi[];
-  const totalCount = data?.total ?? 0;
+  const pdis = useMemo(() => data?.data ?? [], [data?.data]);
 
-  const employeeIdsInPdis = useMemo(() => [...new Set(pdis.map((p) => p.employee_id))], [pdis]);
-  const hasAllProfiles =
-    employeeIdsInPdis.length === 0 || employeeIdsInPdis.every((id) => id in employeeProfiles);
-  const showTable = !isLoading && (pdis.length === 0 || hasAllProfiles);
+  const employeeIdsFetchKey = useMemo(() => {
+    if (pdis.length === 0) return '';
+    return [...new Set(pdis.map((p) => p.employee_id))].sort().join(',');
+  }, [pdis]);
+
+  const totalCount = data?.total ?? 0;
+  const pdiIdsForProgress = useMemo(() => pdis.map((p) => p.id), [pdis]);
+  const progressByPdi = usePdiListProgress(pdiIdsForProgress);
+
+  const isAnyPdfDownloadActive = downloadingPdiId !== null;
+  const isEmployeeColumnSkeleton = showEmployeeColumn && isProfilesLoading;
 
   useEffect(() => {
     if (isError) toast.error('Erro ao carregar PDIs');
   }, [isError]);
 
   useEffect(() => {
-    const ids = [...new Set(pdis.map((p) => p.employee_id))];
-    if (ids.length === 0) {
-      setEmployeeProfiles({});
+    if (!employeeIdsFetchKey) {
+      setEmployeeProfiles((prev) =>
+        Object.keys(prev).length === 0 ? prev : {}
+      );
+      setIsProfilesLoading(false);
       return;
     }
+
+    setIsProfilesLoading(true);
+    setEmployeeProfiles({});
+
+    const ids = employeeIdsFetchKey.split(',');
+    let cancelled = false;
 
     supabase
       .from('profiles')
       .select('id, name, avatar_url, avatar_thumb_url')
       .in('id', ids)
       .then(({ data: profiles }) => {
-        const map: Record<string, { name: string; avatar_url?: string | null; avatar_thumb_url?: string | null }> = {};
+        if (cancelled) return;
+        const map: Record<
+          string,
+          { name: string; avatar_url?: string | null; avatar_thumb_url?: string | null }
+        > = {};
         (profiles ?? []).forEach((p) => {
           map[p.id] = {
             name: p.name ?? '',
@@ -109,8 +146,13 @@ export default function PdiListPage() {
           };
         });
         setEmployeeProfiles(map);
+        setIsProfilesLoading(false);
       });
-  }, [pdis]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [employeeIdsFetchKey]);
 
   const searchEmployees = useCallback(
     async (query: string): Promise<AsyncSearchOption[]> => {
@@ -125,49 +167,101 @@ export default function PdiListPage() {
       if (query.trim()) {
         q = q.ilike('name', `%${query.trim()}%`);
       }
-      if (user?.role === 'manager' && user?.id) {
+      if (listMode === 'manager' && user?.id) {
         q = q.eq('manager_id', user.id);
       }
-      const { data, error } = await q;
+      const { data: rows, error } = await q;
       if (error) return [];
-      return (data ?? []).map((r) => ({ id: r.id, label: r.name ?? '' }));
+      return (rows ?? []).map((r) => ({ id: r.id, label: r.name ?? '' }));
     },
-    [user?.tenantId, user?.id, user?.role]
+    [user?.tenantId, user?.id, listMode]
   );
 
-  const handleCreateSuccess = (pdiId: string) => {
-    setCreateDialogOpen(false);
-    toast.success('PDI criado.');
-    navigate(`/pdis/${pdiId}`);
-  };
+  const handleCreateSuccess = useCallback(
+    (pdiId: string) => {
+      setCreateDialogOpen(false);
+      toast.success('PDI criado.');
+      navigate(`/pdis/${pdiId}`);
+    },
+    [navigate]
+  );
 
-  const handleFilterEmployeeChange = (value: AsyncSearchOption | null) => {
+  const handleFilterEmployeeChange = useCallback((value: AsyncSearchOption | null) => {
     setFilterEmployee(value);
     setPage(1);
-  };
+  }, []);
 
-  const handleFilterStatusChange = (value: string) => {
+  const handleFilterStatusChange = useCallback((value: string) => {
     setFilterStatus(value);
     setPage(1);
-  };
+  }, []);
 
-  const handleClearFilters = () => {
+  const handleClearFilters = useCallback(() => {
     setFilterEmployee(null);
     setFilterStatus('all');
     setPage(1);
-  };
+  }, []);
 
   const hasActiveFilters =
-    (canCreate && filterEmployee !== null) || filterStatus !== 'all';
+    (showEmployeeFilter && filterEmployee !== null) || filterStatus !== 'all';
 
-  const handlePageSizeChange = (value: string) => {
+  const handlePageSizeChange = useCallback((value: string) => {
     setPageSize(Number(value));
     setPage(1);
-  };
+  }, []);
+
+  const handleOpenCreate = useCallback(() => {
+    setCreateDialogOpen(true);
+  }, []);
+
+  const onDownloadPdf = useCallback(
+    (pdiId: string) => {
+      void downloadPdiPdf(pdiId);
+    },
+    [downloadPdiPdf]
+  );
 
   const totalPages = Math.ceil(totalCount / pageSize) || 1;
   const startRow = totalCount === 0 ? 0 : (page - 1) * pageSize + 1;
   const endRow = Math.min(page * pageSize, totalCount);
+
+  const visiblePageNumbers = useMemo(() => {
+    const maxVisible = 5;
+    let start = 1;
+    let end = Math.min(maxVisible, totalPages);
+    if (totalPages > maxVisible) {
+      if (page > totalPages - 2) {
+        start = totalPages - 4;
+        end = totalPages;
+      } else if (page > 2) {
+        start = page - 2;
+        end = page + 2;
+      }
+    }
+    const len = Math.max(0, end - start + 1);
+    return Array.from({ length: len }, (_, i) => start + i);
+  }, [page, totalPages]);
+
+  const handlePaginationPrevious = useCallback((e: MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    setPage((p) => (p > 1 ? p - 1 : p));
+  }, []);
+
+  const handlePaginationNext = useCallback(
+    (e: MouseEvent<HTMLAnchorElement>) => {
+      e.preventDefault();
+      setPage((p) => (p < totalPages ? p + 1 : p));
+    },
+    [totalPages]
+  );
+
+  const handlePageNumberClick = useCallback(
+    (pageNum: number) => (e: MouseEvent<HTMLAnchorElement>) => {
+      e.preventDefault();
+      setPage(pageNum);
+    },
+    []
+  );
 
   return (
     <MainLayout>
@@ -178,7 +272,7 @@ export default function PdiListPage() {
             Planos de Desenvolvimento Individual
           </h1>
           {canCreate && (
-            <Button onClick={() => setCreateDialogOpen(true)}>
+            <Button type="button" onClick={handleOpenCreate}>
               <Plus className="w-4 h-4 mr-2" />
               Novo PDI
             </Button>
@@ -191,7 +285,7 @@ export default function PdiListPage() {
             filterStatus={filterStatus}
             pageSize={pageSize}
             pageSizeOptions={PAGE_SIZE_OPTIONS}
-            showEmployeeFilter={canCreate}
+            showEmployeeFilter={showEmployeeFilter}
             onFilterEmployeeChange={handleFilterEmployeeChange}
             onFilterStatusChange={handleFilterStatusChange}
             onPageSizeChange={handlePageSizeChange}
@@ -202,7 +296,7 @@ export default function PdiListPage() {
         </div>
 
         <div className="card-elevated overflow-hidden">
-          {!showTable ? (
+          {isLoading ? (
             <div className="overflow-x-auto">
               <div className="w-full min-w-0 rounded-lg border bg-background p-4">
                 <Table>
@@ -210,6 +304,8 @@ export default function PdiListPage() {
                     <TableRow>
                       <TableHead><Skeleton className="h-4 w-24" /></TableHead>
                       <TableHead><Skeleton className="h-4 w-20" /></TableHead>
+                      <TableHead><Skeleton className="h-4 w-20" /></TableHead>
+                      <TableHead><Skeleton className="h-4 w-14" /></TableHead>
                       <TableHead><Skeleton className="h-4 w-24" /></TableHead>
                       <TableHead><Skeleton className="h-4 w-24" /></TableHead>
                       <TableHead className="text-right"><Skeleton className="h-4 w-16 ml-auto" /></TableHead>
@@ -220,6 +316,8 @@ export default function PdiListPage() {
                       <TableRow key={i} className="animate-pulse">
                         <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-6 w-16 rounded-full" /></TableCell>
+                        <TableCell><Skeleton className="h-[46px] w-[46px] rounded-full mx-auto sm:mx-0" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                         <TableCell className="text-right"><Skeleton className="h-8 w-20 ml-auto" /></TableCell>
@@ -242,60 +340,35 @@ export default function PdiListPage() {
                     <TableRow>
                       <TableHead>Título</TableHead>
                       <TableHead>Tipo</TableHead>
-
-                      {canCreate && (
+                      <TableHead className="whitespace-nowrap">Status</TableHead>
+                      <TableHead className="w-[1%] whitespace-nowrap">Andamento</TableHead>
+                      {showEmployeeColumn && (
                         <TableHead>Colaborador</TableHead>
                       )}
-
                       <TableHead>Data de criação</TableHead>
-                      <TableHead className="w-[120px] text-right">
+                      <TableHead className="w-[1%] whitespace-nowrap text-right min-w-[140px]">
                         Ações
                       </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {pdis.map((pdi) => (
-                      <TableRow key={pdi.id}>
-                        <TableCell className="font-medium">
-                          {pdi.title ?? employeeProfiles[pdi.employee_id]?.name ?? 'PDI'}
-                        </TableCell>
-                        <TableCell>{PDI_TYPE_LABELS[pdi.type] ?? pdi.type}</TableCell>
-                        {canCreate && (
-                          <TableCell>
-                            <div className="flex items-center gap-3">
-                              <UserAvatar
-                                avatarUrl={employeeProfiles[pdi.employee_id]?.avatar_url}
-                                avatarThumbUrl={employeeProfiles[pdi.employee_id]?.avatar_thumb_url}
-                                name={employeeProfiles[pdi.employee_id]?.name ?? pdi.employee_id}
-                                size="sm"
-                              />
-                              <Link to={`/employees/${pdi.employee_id}`} className="text-primary hover:underline">
-                                {employeeProfiles[pdi.employee_id]?.name ?? pdi.employee_id}
-                              </Link>
-                            </div>
-                          </TableCell>
-                        )}
-                        <TableCell>{new Date(pdi.created_at).toLocaleDateString('pt-BR')}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button variant="ghost" size="sm" asChild>
-                              <Link to={`/pdis/${pdi.id}`}>
-                                {canCreate ? (
-                                  <>
-                                    <Pencil className="w-4 h-4 mr-1" />
-                                    Editar
-                                  </>
-                                ) : (
-                                  <>
-                                    <Eye className="w-4 h-4 mr-1" />
-                                    Ver
-                                  </>
-                                )}
-                              </Link>
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
+                    {pdis.map((pdi: PdiListRow) => (
+                      <PdiListTableRow
+                        key={pdi.id}
+                        pdi={pdi}
+                        progressEntry={
+                          progressByPdi.data?.[pdi.id] ??
+                          PDI_LIST_PROGRESS_DEFAULT
+                        }
+                        isProgressLoading={progressByPdi.isLoading}
+                        showEmployeeColumn={showEmployeeColumn}
+                        employeeProfile={employeeProfiles[pdi.employee_id]}
+                        isEmployeeColumnSkeleton={isEmployeeColumnSkeleton}
+                        canCreatePdi={canCreatePdi}
+                        isRowDownloadingPdf={downloadingPdiId === pdi.id}
+                        isAnyPdfDownloadActive={isAnyPdfDownloadActive}
+                        onDownloadPdf={onDownloadPdf}
+                      />
                     ))}
                   </TableBody>
                 </Table>
@@ -325,52 +398,26 @@ export default function PdiListPage() {
                       <PaginationItem>
                         <PaginationPrevious
                           href="#"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            if (page > 1) setPage(page - 1);
-                          }}
+                          onClick={handlePaginationPrevious}
                           aria-disabled={page <= 1}
                           className={page <= 1 ? 'pointer-events-none opacity-50' : ''}
                         />
                       </PaginationItem>
-                      {(() => {
-                        const maxVisible = 5;
-                        let start = 1;
-                        let end = Math.min(maxVisible, totalPages);
-                        if (totalPages > maxVisible) {
-                          if (page > totalPages - 2) {
-                            start = totalPages - 4;
-                            end = totalPages;
-                          } else if (page > 2) {
-                            start = page - 2;
-                            end = page + 2;
-                          }
-                        }
-                        return Array.from({ length: Math.max(0, end - start + 1) }, (_, i) => {
-                          const pageNum = start + i;
-                          return (
-                            <PaginationItem key={pageNum}>
-                              <PaginationLink
-                                href="#"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  setPage(pageNum);
-                                }}
-                                isActive={page === pageNum}
-                              >
-                                {pageNum}
-                              </PaginationLink>
-                            </PaginationItem>
-                          );
-                        });
-                      })()}
+                      {visiblePageNumbers.map((pageNum) => (
+                        <PaginationItem key={pageNum}>
+                          <PaginationLink
+                            href="#"
+                            onClick={handlePageNumberClick(pageNum)}
+                            isActive={page === pageNum}
+                          >
+                            {pageNum}
+                          </PaginationLink>
+                        </PaginationItem>
+                      ))}
                       <PaginationItem>
                         <PaginationNext
                           href="#"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            if (page < totalPages) setPage(page + 1);
-                          }}
+                          onClick={handlePaginationNext}
                           aria-disabled={page >= totalPages}
                           className={page >= totalPages ? 'pointer-events-none opacity-50' : ''}
                         />
@@ -385,9 +432,12 @@ export default function PdiListPage() {
       </div>
 
       {canCreate && (
-        <CreatePdiDialog open={createDialogOpen} onOpenChange={setCreateDialogOpen} onSuccess={handleCreateSuccess} />
+        <CreatePdiDialog
+          open={createDialogOpen}
+          onOpenChange={setCreateDialogOpen}
+          onSuccess={handleCreateSuccess}
+        />
       )}
     </MainLayout>
   );
 }
-

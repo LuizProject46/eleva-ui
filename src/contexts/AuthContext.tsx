@@ -35,7 +35,6 @@ interface AuthContextType {
   isHR: () => boolean;
   isManager: () => boolean;
   isPlatformAdmin: () => boolean;
-  canManagePdi: () => boolean;
   canManageUsers: () => boolean;
   canCreateUser: () => boolean;
   canEditUser: (targetProfile: TargetProfileForPermission) => boolean;
@@ -258,7 +257,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isHR = () => user?.role === 'hr';
   const isManager = () => user?.role === 'manager';
   const isPlatformAdmin = () => user?.isPlatformAdmin === true;
-  const canManagePdi = () => user?.role === 'hr' || user?.role === 'manager';
   const canManageUsers = () => user?.role === 'hr' || user?.role === 'manager';
   const canCreateUser = () => user?.role === 'hr';
   const canEditUser = (targetProfile: TargetProfileForPermission) => {
@@ -281,7 +279,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isHR,
         isManager,
         isPlatformAdmin,
-        canManagePdi,
         canManageUsers,
         canCreateUser,
         canEditUser,

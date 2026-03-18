@@ -1,16 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ChevronDown } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
-import { listAssignmentsByUser } from '@/services/courseAssignmentService';
-import { isCourseCompleted } from '@/services/courseProgressService';
+import { getCompletedCourseTitlesForPdiContext } from '@/modules/pdi/utils/pdiEmployeeCompletedCourses';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
-
-const MAX_ASSIGNMENTS_TO_CHECK = 15;
 
 interface PdiContextSectionProps {
   employeeId: string;
@@ -25,25 +21,7 @@ export function PdiContextSection({ employeeId }: PdiContextSectionProps) {
     if (!employeeId) return;
     setIsLoading(true);
     try {
-      const assignments = await listAssignmentsByUser(employeeId);
-      const toCheck = assignments.slice(0, MAX_ASSIGNMENTS_TO_CHECK);
-      const completed = await Promise.all(
-        toCheck.map(async (a) => {
-          const ok = await isCourseCompleted(a.id);
-          return ok ? a.course_id : null;
-        })
-      );
-      const completedCourseIds = completed.filter((id): id is string => id != null);
-      if (completedCourseIds.length === 0) {
-        setCompletedCourseTitles([]);
-        setIsLoading(false);
-        return;
-      }
-      const { data: courses } = await supabase
-        .from('courses')
-        .select('id, title')
-        .in('id', completedCourseIds);
-      const titles = (courses ?? []).map((c) => c.title ?? '').filter(Boolean);
+      const titles = await getCompletedCourseTitlesForPdiContext(employeeId);
       setCompletedCourseTitles(titles);
     } catch {
       setCompletedCourseTitles([]);

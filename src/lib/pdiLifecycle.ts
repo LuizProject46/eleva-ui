@@ -3,7 +3,13 @@
  * Used to gate UI actions (buttons) in PdiDetail.
  */
 
-import type { Pdi, PdiStatus } from '@/types/pdi';
+import type { Pdi, PdiCloseResult, PdiStatus } from '@/types/pdi';
+
+export const PDI_CLOSE_RESULT_LABELS: Record<PdiCloseResult, string> = {
+  completed: 'Concluído',
+  partial: 'Parcial',
+  not_completed: 'Não concluído',
+};
 
 export const PDI_STATUS_LABELS: Record<PdiStatus, string> = {
   draft: 'Rascunho',

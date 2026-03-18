@@ -3,7 +3,14 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+  useSearchParams,
+} from "react-router-dom";
 import {
   BackofficeGuard,
   BackofficeLayout,
@@ -114,6 +121,16 @@ function getPageTitle(pathname: string): string {
   return map[pathname] ?? "App";
 }
 
+function LoginRoute() {
+  const { isAuthenticated } = useAuth();
+  const [searchParams] = useSearchParams();
+  const isWrongTenant = searchParams.get("reason") === "wrong_tenant";
+  if (isAuthenticated && !isWrongTenant) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <Login />;
+}
+
 function AppRoutes() {
   const { isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
@@ -130,7 +147,7 @@ function AppRoutes() {
 
   return (
     <Routes>
-      <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />} />
+      <Route path="/login" element={<LoginRoute />} />
       <Route path="/forgot-password" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/" element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />} />

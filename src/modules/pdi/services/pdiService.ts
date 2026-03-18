@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import type {
   Pdi,
+  PdiListRow,
   PdiInsert,
   PdiActionPlan,
   PdiActionPlanInsert,
@@ -12,6 +13,8 @@ import type {
 
 const PDI_COLS =
   'id, tenant_id, employee_id, type, title, status, closed_at, result, close_comment, created_by, created_at, updated_at';
+
+const PDI_LIST_COLS = 'id, employee_id, type, title, status, created_at';
 
 const ACTION_PLAN_COLS =
   'id, pdi_id, type, delivery_date, description, position, created_by, created_at, updated_at, reminder_sent_at';
@@ -39,7 +42,7 @@ export interface ListPdisOptions {
 }
 
 export interface ListPdisResult {
-  data: Pdi[];
+  data: PdiListRow[];
   total: number;
 }
 
@@ -47,7 +50,7 @@ export async function listPdis(options: ListPdisOptions = {}): Promise<ListPdisR
   const { employeeId, status, limit = 20, offset = 0 } = options;
   let query = supabase
     .from('pdis')
-    .select(PDI_COLS, { count: 'exact' })
+    .select(PDI_LIST_COLS, { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
@@ -60,7 +63,7 @@ export async function listPdis(options: ListPdisOptions = {}): Promise<ListPdisR
 
   const { data, error, count } = await query;
   if (error) throw error;
-  return { data: (data ?? []) as Pdi[], total: count ?? 0 };
+  return { data: (data ?? []) as PdiListRow[], total: count ?? 0 };
 }
 
 export async function getPdi(pdiId: string): Promise<Pdi | null> {

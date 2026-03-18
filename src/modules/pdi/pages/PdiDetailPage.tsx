@@ -4,34 +4,58 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePdiPermissions } from '@/modules/pdi/usePdiPermissions';
 import { supabase } from '@/lib/supabase';
-import type { Pdi } from '@/types/pdi';
+import type { Pdi, PdiCloseResult } from '@/types/pdi';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft } from 'lucide-react';
+import {
+  ArrowLeft,
+  CalendarClock,
+  CalendarCheck,
+  Download,
+  Loader2,
+  MessageSquareText,
+} from 'lucide-react';
 import { toast } from 'sonner';
-import { PDI_STATUS_LABELS } from '@/lib/pdiLifecycle';
+import { PDI_CLOSE_RESULT_LABELS, PDI_STATUS_LABELS } from '@/lib/pdiLifecycle';
 import { PDI_TYPE_LABELS } from '@/constants/pdiTypes';
 
 import { getPdi, updatePdi } from '@/modules/pdi/services/pdiService';
 import { usePdiActionPlans } from '@/modules/pdi/hooks/usePdiActionPlans';
 import { usePdiPlanActions } from '@/modules/pdi/hooks/usePdiPlanActions';
 import { derivePdiStatus } from '@/modules/pdi/utils/derivePdiStatus';
+import { usePdiPdfDownload } from '@/modules/pdi/hooks/usePdiPdfDownload';
 
 import { PdiContextSection } from '@/components/pdi/PdiContextSection';
 import { PdiActionPlansSection } from '@/modules/pdi/components/PdiActionPlansSection';
 import { PdiCloseSection } from '@/components/pdi/PdiCloseSection';
 import { canTransitionTo } from '@/lib/pdiLifecycle';
 
+function closeResultBadgeClass(result: PdiCloseResult): string {
+  switch (result) {
+    case 'completed':
+      return 'border-primary/25 bg-primary/10 text-primary';
+    case 'partial':
+      return 'border-border bg-muted text-foreground';
+    case 'not_completed':
+      return 'border-destructive/25 bg-destructive/10 text-destructive';
+    default:
+      return 'border-border bg-muted text-foreground';
+  }
+}
+
 export default function PdiDetailPage() {
   const { pdiId } = useParams<{ pdiId: string }>();
-  const { user, canManagePdi, isHR } = useAuth();
-  const canManage = canManagePdi();
+  const { user } = useAuth();
+  const { canEditPdiContent, canArchiveClosedPdi } = usePdiPermissions();
+  const canManage = canEditPdiContent;
 
   const queryClient = useQueryClient();
+  const { downloadPdiPdf, isDownloadingPdf } = usePdiPdfDownload();
   const [employeeName, setEmployeeName] = useState<string>('');
   const [createdByNames, setCreatedByNames] = useState<Record<string, string>>({});
 
@@ -133,8 +157,12 @@ export default function PdiDetailPage() {
         });
         if (newStatus === 'active') toast.success('PDI ativado.');
         else toast.success('Status atualizado.');
-      } catch {
-        toast.error('Erro ao atualizar status.');
+      } catch (err) {
+        toast.error(
+          err && typeof err === 'object' && 'code' in err && err.code === '42501'
+            ? 'Sem permissão para alterar este PDI.'
+            : 'Erro ao atualizar status.'
+        );
       }
     },
     [pdi, updatePdiMutation]
@@ -154,8 +182,12 @@ export default function PdiDetailPage() {
           },
         });
         toast.success('PDI encerrado.');
-      } catch {
-        toast.error('Erro ao encerrar PDI.');
+      } catch (err) {
+        toast.error(
+          err && typeof err === 'object' && 'code' in err && err.code === '42501'
+            ? 'Sem permissão para alterar este PDI.'
+            : 'Erro ao encerrar PDI.'
+        );
       }
     },
     [pdi, updatePdiMutation]
@@ -169,8 +201,12 @@ export default function PdiDetailPage() {
         updates: { status: 'archived' },
       });
       toast.success('PDI arquivado.');
-    } catch {
-      toast.error('Erro ao arquivar PDI.');
+    } catch (err) {
+      toast.error(
+        err && typeof err === 'object' && 'code' in err && err.code === '42501'
+          ? 'Sem permissão para alterar este PDI.'
+          : 'Erro ao arquivar PDI.'
+      );
     }
   }, [pdi, updatePdiMutation]);
 
@@ -215,75 +251,100 @@ export default function PdiDetailPage() {
     <MainLayout>
       <div className="max-w-4xl mx-auto space-y-8">
         <header className="space-y-4">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" asChild aria-label="Voltar para lista de PDIs">
-              <Link to="/pdis">
-                <ArrowLeft className="w-4 h-4" />
-              </Link>
-            </Button>
-            <div className="min-w-0 flex-1">
-              <h1 className="text-2xl md:text-3xl font-semibold text-foreground truncate">
-                {pdi.title || 'Plano de Desenvolvimento Individual'}
-              </h1>
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-muted-foreground">
-                <Link
-                  to={`/employees/${pdi.employee_id}`}
-                  className="text-primary hover:underline font-medium text-foreground"
-                >
-                  {employeeName || pdi.employee_id}
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-4">
+            <div className="flex items-start gap-3 min-w-0 flex-1">
+              <Button variant="ghost" size="icon" asChild aria-label="Voltar para lista de PDIs" className="shrink-0 mt-0.5">
+                <Link to="/pdis">
+                  <ArrowLeft className="w-4 h-4" />
                 </Link>
-                <span>{PDI_TYPE_LABELS[pdi.type] ?? pdi.type}</span>
-                <span>
-                  Criado em {new Date(pdi.created_at).toLocaleDateString('pt-BR')}
-                </span>
-                <Badge variant={statusBadgeVariant} className="shrink-0">
-                  {PDI_STATUS_LABELS[pdi.status] ?? pdi.status}
-                </Badge>
+              </Button>
+              <div className="min-w-0 flex-1">
+                <h1 className="text-2xl md:text-3xl font-semibold text-foreground truncate">
+                  {pdi.title || 'Plano de Desenvolvimento Individual'}
+                </h1>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-muted-foreground">
+                  <Link
+                    to={`/employees/${pdi.employee_id}`}
+                    className="text-primary hover:underline font-medium text-foreground"
+                  >
+                    {employeeName || pdi.employee_id}
+                  </Link>
+                  <span>{PDI_TYPE_LABELS[pdi.type] ?? pdi.type}</span>
+                  <span>
+                    Criado em {new Date(pdi.created_at).toLocaleDateString('pt-BR')}
+                  </span>
+                  <Badge variant={statusBadgeVariant} className="shrink-0">
+                    {PDI_STATUS_LABELS[pdi.status] ?? pdi.status}
+                  </Badge>
+                </div>
               </div>
             </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full sm:w-auto shrink-0 gap-2 border-border"
+              disabled={isDownloadingPdf}
+              onClick={() => void downloadPdiPdf(pdi.id)}
+              aria-label="Baixar PDF do PDI com resumo e detalhes"
+            >
+              {isDownloadingPdf ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+              ) : (
+                <Download className="h-4 w-4" aria-hidden />
+              )}
+              Baixar PDF
+            </Button>
           </div>
+          <p className="text-sm text-muted-foreground pl-0 sm:pl-11 max-w-2xl">
+            O PDF inclui identificação, resumo de andamento e resultados, contexto (quando houver) e
+            todos os planos de ação com tarefas.
+          </p>
         </header>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-foreground">Progresso</h2>
-              {progressStatus && (
-                <span
-                  className={`px-2 py-0.5 text-xs font-medium rounded-full ${
-                    progressStatus === 'completed'
-                      ? 'bg-primary/10 text-primary'
-                      : progressStatus === 'overdue'
-                        ? 'bg-destructive/10 text-destructive'
-                        : 'bg-muted text-muted-foreground'
-                  }`}
-                >
-                  {progressStatus === 'completed'
-                    ? 'Concluído'
-                    : progressStatus === 'overdue'
-                      ? 'Em atraso'
-                      : 'Em andamento'}
-                </span>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {progress.total > 0 ? (
-              <>
-                <div className="flex items-center gap-4">
-                  <Progress value={progress.pct} className="flex-1 h-2" />
-                  <span className="text-sm text-muted-foreground whitespace-nowrap">
-                    {progress.completed}/{progress.total} tarefas concluídas
-                  </span>
+        {pdi.status !== 'closed' && pdi.status !== 'archived' ? (
+          <>
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-foreground">Progresso</h2>
+                  {progressStatus ? (
+                    <span
+                      className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                        progressStatus === 'completed'
+                          ? 'bg-primary/10 text-primary'
+                          : progressStatus === 'overdue'
+                            ? 'bg-destructive/10 text-destructive'
+                            : 'bg-muted text-muted-foreground'
+                      }`}
+                    >
+                      {progressStatus === 'completed'
+                        ? 'Concluído'
+                        : progressStatus === 'overdue'
+                          ? 'Em atraso'
+                          : 'Em andamento'}
+                    </span>
+                  ) : null}
                 </div>
-              </>
-            ) : (
-              <p className="text-sm text-muted-foreground">Nenhuma ação ainda.</p>
-            )}
-          </CardContent>
-        </Card>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {progress.total > 0 ? (
+                  <>
+                    <div className="flex items-center gap-4">
+                      <Progress value={progress.pct} className="flex-1 h-2" />
+                      <span className="text-sm text-muted-foreground whitespace-nowrap">
+                        {progress.completed}/{progress.total} tarefas concluídas
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Nenhuma ação ainda.</p>
+                )}
+              </CardContent>
+            </Card>
 
-        <PdiContextSection employeeId={pdi.employee_id} />
+            <PdiContextSection employeeId={pdi.employee_id} />
+          </>
+        ) : null}
 
         <PdiActionPlansSection
           pdi={pdi}
@@ -341,7 +402,7 @@ export default function PdiDetailPage() {
           <PdiCloseSection onClose={handleClose} />
         )}
 
-        {pdi.status === 'closed' && isHR() && (
+        {pdi.status === 'closed' && canArchiveClosedPdi && (
           <Card>
             <CardHeader>
               <h2 className="text-lg font-semibold text-foreground">Arquivar PDI</h2>
@@ -353,6 +414,105 @@ export default function PdiDetailPage() {
               <Button variant="outline" onClick={handleArchive}>
                 Arquivar PDI
               </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {(pdi.status === 'closed' || pdi.status === 'archived') && (
+          <Card className="overflow-hidden border-border shadow-sm">
+            <CardHeader className="space-y-0 border-b border-border bg-muted/40 px-4 py-4 md:px-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <span
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"
+                    aria-hidden
+                  >
+                    <CalendarCheck className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0 pt-0.5">
+                    <h2 className="text-lg font-semibold text-foreground tracking-tight">
+                      Encerramento
+                    </h2>
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                      Registro definido ao finalizar o PDI
+                    </p>
+                  </div>
+                </div>
+                {pdi.status === 'archived' ? (
+                  <Badge variant="outline" className="w-fit shrink-0 text-xs font-normal">
+                    {PDI_STATUS_LABELS.archived}
+                  </Badge>
+                ) : null}
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6 p-4 md:p-6">
+              <div className="grid gap-4 sm:grid-cols-2">
+                {pdi.result ? (
+                  <div className="flex flex-col justify-center rounded-xl border border-border bg-muted/20 p-4 md:p-5">
+                    <p className="text-xs font-medium text-muted-foreground mb-3">
+                      Resultado do plano
+                    </p>
+                    <span
+                      className={`inline-flex w-fit items-center rounded-full border px-3 py-1 text-sm font-medium ${closeResultBadgeClass(pdi.result)}`}
+                    >
+                      {PDI_CLOSE_RESULT_LABELS[pdi.result]}
+                    </span>
+                  </div>
+                ) : null}
+                {pdi.closed_at ? (
+                  <div className="relative overflow-hidden rounded-xl border border-border bg-gradient-to-br from-muted/40 to-muted/10 p-4 md:p-5">
+                    <div className="absolute right-3 top-3 opacity-[0.07] pointer-events-none hidden sm:block">
+                      <CalendarClock className="h-16 w-16 text-foreground" strokeWidth={1} />
+                    </div>
+                    <div className="relative flex gap-4">
+                      <span
+                        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-background shadow-sm ring-1 ring-border"
+                        aria-hidden
+                      >
+                        <CalendarClock className="h-6 w-6 text-muted-foreground" />
+                      </span>
+                      <div className="min-w-0 flex-1 space-y-1 pt-0.5">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          Data e hora do encerramento
+                        </p>
+                        <p className="text-xl font-semibold text-foreground tracking-tight tabular-nums sm:text-2xl">
+                          {new Date(pdi.closed_at).toLocaleDateString('pt-BR', {
+                            day: '2-digit',
+                            month: 'short',
+                            year: 'numeric',
+                          })}
+                        </p>
+                        <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <span className="inline-block h-px w-6 bg-border shrink-0" aria-hidden />
+                          {new Date(pdi.closed_at).toLocaleTimeString('pt-BR', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                          <span className="text-xs">(horário local)</span>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="rounded-xl border border-border bg-muted/15 p-4 md:p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <MessageSquareText className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden />
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Comentários do gestor
+                  </p>
+                </div>
+                {pdi.close_comment?.trim() ? (
+                  <blockquote className="text-sm leading-relaxed text-foreground whitespace-pre-wrap border-l-2 border-primary/40 pl-4 py-0.5">
+                    {pdi.close_comment.trim()}
+                  </blockquote>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic pl-0.5">
+                    Nenhum comentário foi informado no encerramento.
+                  </p>
+                )}
+              </div>
             </CardContent>
           </Card>
         )}

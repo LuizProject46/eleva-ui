@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
+import { getPdiWriteCapabilities } from '@/modules/pdi/pdiPermissions';
 import { supabase } from '@/lib/supabase';
 import { createPdi } from '@/modules/pdi/services/pdiService';
 import type { PdiType } from '@/types/pdi';
@@ -63,6 +64,10 @@ export function CreatePdiDialog({ open, onOpenChange, onSuccess }: CreatePdiDial
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!getPdiWriteCapabilities(user?.role).canCreatePdi) {
+      toast.error('Apenas gestores podem criar PDIs.');
+      return;
+    }
     if (!user?.tenantId || !employee?.id) {
       toast.error('Selecione o colaborador.');
       return;

@@ -18,12 +18,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import type { PdiCloseResult } from '@/types/pdi';
-
-const RESULT_LABELS: Record<PdiCloseResult, string> = {
-  completed: 'Concluído',
-  partial: 'Parcial',
-  not_completed: 'Não concluído',
-};
+import { PDI_CLOSE_RESULT_LABELS } from '@/lib/pdiLifecycle';
 
 interface PdiCloseSectionProps {
   onClose: (result: PdiCloseResult, closeComment: string | null) => void;
@@ -73,7 +68,7 @@ export function PdiCloseSection({ onClose }: PdiCloseSectionProps) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {(Object.entries(RESULT_LABELS) as [PdiCloseResult, string][]).map(([k, v]) => (
+                  {(Object.entries(PDI_CLOSE_RESULT_LABELS) as [PdiCloseResult, string][]).map(([k, v]) => (
                     <SelectItem key={k} value={k}>{v}</SelectItem>
                   ))}
                 </SelectContent>

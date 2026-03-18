@@ -37,7 +37,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { ACTION_PLAN_TYPE_OPTIONS, ACTION_PLAN_TYPE_LABELS } from '@/constants/actionPlanTypes';
 import type { ActionPlanType } from '@/constants/actionPlanTypes';
-import { ChevronDown, Loader2, Plus, Pencil, Trash2 } from 'lucide-react';
+import { Check, ChevronDown, Circle, Loader2, Plus, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import type { Pdi, PdiActionPlan, PdiPlanAction } from '@/types/pdi';
@@ -314,34 +314,58 @@ export function PdiActionPlansSection({
                                 key={action.id}
                                 className="flex items-start gap-3 rounded-md border border-border bg-background p-3"
                               >
-                                {isThisActionUpdating ? (
-                                  <Loader2
-                                    className="h-4 w-4 shrink-0 animate-spin text-muted-foreground mt-0.5"
-                                    aria-label="Salvando..."
+                                {canEdit ? (
+                                  isThisActionUpdating ? (
+                                    <Loader2
+                                      className="h-4 w-4 shrink-0 animate-spin text-muted-foreground mt-0.5"
+                                      aria-label="Salvando..."
+                                    />
+                                  ) : (
+                                    <Checkbox
+                                      id={`action-${action.id}`}
+                                      checked={action.completed}
+                                      disabled={isUpdatingAction}
+                                      onCheckedChange={(checked) => {
+                                        void onUpdateAction(action.id, {
+                                          completed: checked === true,
+                                        });
+                                      }}
+                                      className="mt-0.5"
+                                    />
+                                  )
+                                ) : action.completed ? (
+                                  <Check
+                                    className="h-4 w-4 shrink-0 text-primary mt-0.5"
+                                    aria-hidden
                                   />
                                 ) : (
-                                  <Checkbox
-                                    id={`action-${action.id}`}
-                                    checked={action.completed}
-                                    disabled={isUpdatingAction}
-                                    onCheckedChange={(checked) => {
-                                      void onUpdateAction(action.id, {
-                                        completed: checked === true,
-                                      });
-                                    }}
-                                    className="mt-0.5"
+                                  <Circle
+                                    className="h-4 w-4 shrink-0 text-muted-foreground mt-0.5"
+                                    aria-hidden
                                   />
                                 )}
-                                <label
-                                  htmlFor={`action-${action.id}`}
-                                  className={`flex-1 text-sm cursor-pointer ${
-                                    action.completed
-                                      ? 'text-muted-foreground line-through'
-                                      : 'text-foreground'
-                                  }`}
-                                >
-                                  {action.description}
-                                </label>
+                                {canEdit && !isThisActionUpdating ? (
+                                  <label
+                                    htmlFor={`action-${action.id}`}
+                                    className={`flex-1 text-sm cursor-pointer ${
+                                      action.completed
+                                        ? 'text-muted-foreground line-through'
+                                        : 'text-foreground'
+                                    }`}
+                                  >
+                                    {action.description}
+                                  </label>
+                                ) : (
+                                  <span
+                                    className={`flex-1 text-sm ${
+                                      action.completed
+                                        ? 'text-muted-foreground line-through'
+                                        : 'text-foreground'
+                                    }`}
+                                  >
+                                    {action.description}
+                                  </span>
+                                )}
                                 {canEdit && (
                                   <Button
                                     variant="ghost"

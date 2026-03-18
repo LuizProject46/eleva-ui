@@ -13,9 +13,17 @@ interface TenantAccessGuardProps {
  * - Tenant users: allowed only when current URL tenant matches their tenant_id.
  * Use inside ProtectedRoute so it runs only after auth is confirmed.
  */
+function TenantGuardLoading() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+    </div>
+  );
+}
+
 export function TenantAccessGuard({ children }: TenantAccessGuardProps) {
   const { user } = useAuth();
-  const { tenant } = useTenant();
+  const { tenant, isLoading: isTenantLoading } = useTenant();
   const location = useLocation();
 
   if (!user) {
@@ -26,10 +34,16 @@ export function TenantAccessGuard({ children }: TenantAccessGuardProps) {
     return <>{children}</>;
   }
 
-  const isTenantUser = user.tenantId != null;
-  const tenantMatches = tenant?.id != null && user.tenantId === tenant.id;
+  if (isTenantLoading) {
+    return <TenantGuardLoading />;
+  }
 
-  if (isTenantUser && !tenantMatches) {
+  const isTenantUser = user.tenantId != null;
+  /** Real row from DB; fallback placeholder uses id '' (e.g. local dev) — must not treat as mismatch or /login ↔ /dashboard loops. */
+  const tenantResolved = Boolean(tenant?.id);
+  const tenantMatches = tenantResolved && user.tenantId === tenant.id;
+
+  if (isTenantUser && tenantResolved && !tenantMatches) {
     return (
       <Navigate
         to={{ pathname: '/login', search: '?reason=wrong_tenant' }}

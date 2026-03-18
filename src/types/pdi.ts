@@ -26,6 +26,16 @@ export interface Pdi {
   updated_at: string;
 }
 
+/** Columns returned by list/grid queries (smaller payload than full `Pdi`). */
+export interface PdiListRow {
+  id: string;
+  employee_id: string;
+  type: PdiType;
+  title: string | null;
+  status: PdiStatus;
+  created_at: string;
+}
+
 export interface PdiProgress {
   total_actions: number;
   completed_actions: number;
