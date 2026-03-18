@@ -1,6 +1,6 @@
 /**
  * PDI export as PDF: identification, results summary, context, action plans.
- * Uses jsPDF only (no React/Tailwind).
+ * Uses jsPDF only (no React/Tailwind). Colors follow whitelabel primary/accent.
  */
 
 import { jsPDF } from 'jspdf';
@@ -10,6 +10,12 @@ import { PDI_TYPE_LABELS } from '@/constants/pdiTypes';
 import { ACTION_PLAN_TYPE_LABELS } from '@/constants/actionPlanTypes';
 import type { ActionPlanType } from '@/constants/actionPlanTypes';
 import type { PdiProgressStatus } from '@/modules/pdi/utils/derivePdiStatus';
+import {
+  hexToRgb,
+  normalizeHex,
+  DEFAULT_PRIMARY_HEX,
+  DEFAULT_ACCENT_HEX,
+} from '@/lib/branding';
 
 const MARGIN = 16;
 const PAGE_W = 210;
@@ -18,10 +24,20 @@ const CONTENT_W = PAGE_W - 2 * MARGIN;
 const FOOTER_Y = PAGE_H - MARGIN;
 const BOTTOM_SAFE = 22;
 
-/** Header / accent (slate-blue, prints well) */
-const ACCENT: [number, number, number] = [30, 64, 175];
-const ACCENT_LIGHT: [number, number, number] = [238, 242, 255];
+/** Design system: muted-foreground ≈ hsl(220 10% 45%) */
 const TEXT_MUTED: [number, number, number] = [100, 116, 139];
+/** Design system: border ≈ hsl(210 20% 90%) */
+const BORDER: [number, number, number] = [226, 232, 240];
+/** Design system: muted / track bg ≈ hsl(210 15% 93%) */
+const MUTED_FILL: [number, number, number] = [237, 241, 245];
+/** Body text ≈ foreground */
+const FOREGROUND: [number, number, number] = [30, 41, 59];
+
+export interface PdiPdfBranding {
+  primaryColor: string;
+  accentColor?: string;
+  companyName?: string;
+}
 
 export interface PdiPdfPayload {
   pdi: Pdi;
@@ -34,6 +50,59 @@ export interface PdiPdfPayload {
   progressPct: number;
   contextCourseTitles: string[];
   generatedAt: Date;
+  /** Whitelabel: matches app theme (tenant / BrandContext). */
+  branding?: PdiPdfBranding;
+}
+
+function mixWithWhite(
+  rgb: [number, number, number],
+  whiteRatio: number
+): [number, number, number] {
+  const w = Math.min(1, Math.max(0, whiteRatio));
+  return [
+    Math.round(rgb[0] * (1 - w) + 255 * w),
+    Math.round(rgb[1] * (1 - w) + 255 * w),
+    Math.round(rgb[2] * (1 - w) + 255 * w),
+  ];
+}
+
+function relativeLuminance(r: number, g: number, b: number): number {
+  const lin = (c: number) => {
+    const x = c / 255;
+    return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+  };
+  const R = lin(r);
+  const G = lin(g);
+  const B = lin(b);
+  return 0.2126 * R + 0.7152 * G + 0.0722 * B;
+}
+
+function headerForegroundRgb(primary: [number, number, number]): [number, number, number] {
+  return relativeLuminance(primary[0], primary[1], primary[2]) > 0.55
+    ? FOREGROUND
+    : [255, 255, 255];
+}
+
+function resolvePdfColors(payload: PdiPdfPayload): {
+  primary: [number, number, number];
+  primaryLight: [number, number, number];
+  primaryCard: [number, number, number];
+  accent: [number, number, number];
+  companyName: string;
+} {
+  const primaryHex =
+    normalizeHex(payload.branding?.primaryColor ?? '') ?? DEFAULT_PRIMARY_HEX;
+  const accentHex =
+    normalizeHex(payload.branding?.accentColor ?? '') ?? DEFAULT_ACCENT_HEX;
+  const primary = hexToRgb(primaryHex);
+  const accent = hexToRgb(accentHex);
+  return {
+    primary,
+    primaryLight: mixWithWhite(primary, 0.9),
+    primaryCard: mixWithWhite(primary, 0.96),
+    accent,
+    companyName: payload.branding?.companyName?.trim() || 'Eleva',
+  };
 }
 
 function planTypeLabel(type: string): string {
@@ -48,10 +117,12 @@ function progressStatusLabel(s: PdiProgressStatus | null): string {
 }
 
 function safeFileSegment(s: string): string {
-  return s
-    .replace(/[^\w\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .slice(0, 48) || 'PDI';
+  return (
+    s
+      .replace(/[^\w\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .slice(0, 48) || 'PDI'
+  );
 }
 
 export function getPdiPdfFilename(payload: PdiPdfPayload): string {
@@ -61,6 +132,10 @@ export function getPdiPdfFilename(payload: PdiPdfPayload): string {
 }
 
 export function buildPdiPdf(payload: PdiPdfPayload): Blob {
+  const { primary, primaryLight, primaryCard, accent, companyName } =
+    resolvePdfColors(payload);
+  const headerFg = headerForegroundRgb(primary);
+
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   let y = MARGIN;
 
@@ -87,13 +162,13 @@ export function buildPdiPdf(payload: PdiPdfPayload): Blob {
   const sectionTitle = (title: string) => {
     ensureSpace(12);
     y += 4;
-    doc.setFillColor(...ACCENT_LIGHT);
+    doc.setFillColor(...primaryLight);
     doc.roundedRect(MARGIN, y - 4, CONTENT_W, 9, 1, 1, 'F');
     doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...ACCENT);
+    doc.setTextColor(...primary);
     doc.text(title, MARGIN + 3, y + 2.5);
-    doc.setTextColor(0, 0, 0);
+    doc.setTextColor(...FOREGROUND);
     y += 10;
   };
 
@@ -104,7 +179,7 @@ export function buildPdiPdf(payload: PdiPdfPayload): Blob {
     doc.setTextColor(...TEXT_MUTED);
     doc.text(label, MARGIN, y);
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(0, 0, 0);
+    doc.setTextColor(...FOREGROUND);
     const labelW = doc.getTextWidth(label) + 2;
     const lines = doc.splitTextToSize(value, CONTENT_W - labelW - 2);
     const first = (lines as string[])[0] ?? '';
@@ -117,16 +192,19 @@ export function buildPdiPdf(payload: PdiPdfPayload): Blob {
     }
   };
 
-  // —— Cover header (height grows with title lines) ——
+  // —— Cover header ——
   const displayTitle = payload.pdi.title?.trim() || 'Sem título definido';
   doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
   const titleLines = doc.splitTextToSize(displayTitle, CONTENT_W) as string[];
   const titleLineCount = Math.min(titleLines.length, 4);
   const headerH = 28 + titleLineCount * 5 + 6;
-  doc.setFillColor(...ACCENT);
+  doc.setFillColor(...primary);
   doc.rect(0, 0, PAGE_W, headerH, 'F');
-  doc.setTextColor(255, 255, 255);
+  doc.setFillColor(...accent);
+  doc.rect(0, headerH - 1.8, PAGE_W, 1.8, 'F');
+
+  doc.setTextColor(...headerFg);
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.text('Documento gerado automaticamente', MARGIN, 14);
@@ -145,7 +223,7 @@ export function buildPdiPdf(payload: PdiPdfPayload): Blob {
     doc.text(line, MARGIN, ty);
     ty += 5;
   }
-  doc.setTextColor(0, 0, 0);
+  doc.setTextColor(...FOREGROUND);
   y = headerH + 8;
 
   sectionTitle('Identificação');
@@ -187,15 +265,15 @@ export function buildPdiPdf(payload: PdiPdfPayload): Blob {
     const barY = y;
     const barH = 5;
     const barW = CONTENT_W * 0.55;
-    doc.setDrawColor(220, 220, 220);
-    doc.setFillColor(240, 240, 240);
+    doc.setDrawColor(...BORDER);
+    doc.setFillColor(...MUTED_FILL);
     doc.roundedRect(MARGIN, barY, barW, barH, 1, 1, 'FD');
     const fillW = Math.max(0, (barW * progressPct) / 100);
     if (fillW > 0.5) {
-      doc.setFillColor(...ACCENT);
+      doc.setFillColor(...primary);
       doc.roundedRect(MARGIN, barY, fillW, barH, 1, 1, 'F');
     }
-    doc.setTextColor(0, 0, 0);
+    doc.setTextColor(...FOREGROUND);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
     doc.text(`${progressPct}%`, MARGIN + barW + 4, barY + 4);
@@ -236,7 +314,7 @@ export function buildPdiPdf(payload: PdiPdfPayload): Blob {
     doc.text('Comentários do gestor', MARGIN, y);
     y += 5;
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(0, 0, 0);
+    doc.setTextColor(...FOREGROUND);
     const comment = pdi.close_comment?.trim() || 'Nenhum comentário informado no encerramento.';
     drawWrapped(comment, 9, 0, 4.5);
   }
@@ -279,14 +357,16 @@ export function buildPdiPdf(payload: PdiPdfPayload): Blob {
     ensureSpace(14);
     y += 3;
     const blockTop = y;
-    doc.setDrawColor(226, 232, 240);
-    doc.setFillColor(252, 252, 254);
+    doc.setDrawColor(...BORDER);
+    doc.setFillColor(...primaryCard);
     doc.roundedRect(MARGIN, blockTop, CONTENT_W, 8, 1.5, 1.5, 'FD');
+    doc.setFillColor(...accent);
+    doc.rect(MARGIN, blockTop, 1.2, 8, 'F');
     doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...ACCENT);
-    doc.text(`Plano ${idx + 1}`, MARGIN + 3, blockTop + 5.5);
-    doc.setTextColor(0, 0, 0);
+    doc.setTextColor(...primary);
+    doc.text(`Plano ${idx + 1}`, MARGIN + 3.5, blockTop + 5.5);
+    doc.setTextColor(...FOREGROUND);
     y = blockTop + 12;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
@@ -306,7 +386,7 @@ export function buildPdiPdf(payload: PdiPdfPayload): Blob {
     doc.text('Descrição do plano', MARGIN, y);
     y += 5;
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(0, 0, 0);
+    doc.setTextColor(...FOREGROUND);
     drawWrapped(plan.description?.trim() || '—', 9, 0, 4.5);
     y += 2;
     ensureSpace(8);
@@ -315,7 +395,7 @@ export function buildPdiPdf(payload: PdiPdfPayload): Blob {
     doc.setTextColor(...TEXT_MUTED);
     doc.text('Tarefas', MARGIN, y);
     y += 5;
-    doc.setTextColor(0, 0, 0);
+    doc.setTextColor(...FOREGROUND);
     doc.setFont('helvetica', 'normal');
     if (actions.length === 0) {
       drawWrapped('Nenhuma tarefa neste plano.', 9);
@@ -336,11 +416,11 @@ export function buildPdiPdf(payload: PdiPdfPayload): Blob {
     doc.setTextColor(...TEXT_MUTED);
     doc.setFont('helvetica', 'normal');
     doc.text(
-      `Eleva · Gerado em ${payload.generatedAt.toLocaleString('pt-BR')} · Página ${p}/${pageCount}`,
+      `${companyName} · Gerado em ${payload.generatedAt.toLocaleString('pt-BR')} · Página ${p}/${pageCount}`,
       MARGIN,
       FOOTER_Y
     );
-    doc.setTextColor(0, 0, 0);
+    doc.setTextColor(...FOREGROUND);
   }
 
   return doc.output('blob');

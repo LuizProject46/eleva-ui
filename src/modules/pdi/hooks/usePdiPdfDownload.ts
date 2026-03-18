@@ -11,8 +11,10 @@ import {
 } from '@/modules/pdi/services/pdiService';
 import { derivePdiStatus } from '@/modules/pdi/utils/derivePdiStatus';
 import { getCompletedCourseTitlesForPdiContext } from '@/modules/pdi/utils/pdiEmployeeCompletedCourses';
+import { useBrand } from '@/contexts/BrandContext';
 
 export function usePdiPdfDownload() {
+  const { brand } = useBrand();
   const [downloadingPdiId, setDownloadingPdiId] = useState<string | null>(null);
 
   const downloadPdiPdf = useCallback(async (pdiId: string) => {
@@ -49,6 +51,11 @@ export function usePdiPdfDownload() {
         progressPct,
         contextCourseTitles,
         generatedAt: new Date(),
+        branding: {
+          primaryColor: brand.primaryColor,
+          accentColor: brand.accentColor,
+          companyName: brand.companyName,
+        },
       };
 
       const blob = buildPdiPdf(payload);
@@ -65,7 +72,7 @@ export function usePdiPdfDownload() {
     } finally {
       setDownloadingPdiId(null);
     }
-  }, []);
+  }, [brand.accentColor, brand.companyName, brand.primaryColor]);
 
   return {
     downloadPdiPdf,

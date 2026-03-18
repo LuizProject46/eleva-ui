@@ -66,6 +66,18 @@ export function hexToHsl(hex: string): string {
   return `${hDeg} ${sPct}% ${lPct}%`;
 }
 
+/** RGB 0–255 for PDFs, canvas, etc. */
+export function hexToRgb(hex: string): [number, number, number] {
+  const normalized = normalizeHex(hex);
+  const h = normalized ?? DEFAULT_PRIMARY_HEX;
+  const n = parseInt(h.slice(1), 16);
+  if (Number.isNaN(n)) {
+    const fb = parseInt(DEFAULT_PRIMARY_HEX.slice(1), 16);
+    return [(fb >> 16) & 0xff, (fb >> 8) & 0xff, fb & 0xff];
+  }
+  return [(n >> 16) & 0xff, (n >> 8) & 0xff, n & 0xff];
+}
+
 /** Check if a string looks like hex (with or without #). */
 export function isHexColor(value: string): boolean {
   return /^#?[0-9A-Fa-f]{3}$/.test(value.trim()) || /^#?[0-9A-Fa-f]{6}$/.test(value.trim());
