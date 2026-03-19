@@ -6,7 +6,7 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePdiPermissions } from '@/modules/pdi/usePdiPermissions';
 import { supabase } from '@/lib/supabase';
-import type { Pdi, PdiCloseResult } from '@/types/pdi';
+import type { Pdi, PdiCloseResult, PdiEvidence } from '@/types/pdi';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -29,11 +29,16 @@ import { usePdiActionPlans } from '@/modules/pdi/hooks/usePdiActionPlans';
 import { usePdiPlanActions } from '@/modules/pdi/hooks/usePdiPlanActions';
 import { derivePdiStatus } from '@/modules/pdi/utils/derivePdiStatus';
 import { usePdiPdfDownload } from '@/modules/pdi/hooks/usePdiPdfDownload';
+import { usePdiEvidences } from '@/modules/pdi/hooks/usePdiEvidences';
+
+import { createPdiEvidenceRecord, deletePdiEvidenceRecord, uploadPdiEvidenceFile } from '@/modules/pdi/services/pdiEvidenceService';
 
 import { PdiContextSection } from '@/components/pdi/PdiContextSection';
 import { PdiActionPlansSection } from '@/modules/pdi/components/PdiActionPlansSection';
 import { PdiCloseSection } from '@/components/pdi/PdiCloseSection';
 import { canTransitionTo } from '@/lib/pdiLifecycle';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PdiEvidencesManagerTab } from '@/modules/pdi/components/PdiEvidencesManagerTab';
 
 function closeResultBadgeClass(result: PdiCloseResult): string {
   switch (result) {
@@ -72,6 +77,7 @@ export default function PdiDetailPage() {
 
   const actionPlans = usePdiActionPlans(pdiId ?? null);
   const planActions = usePdiPlanActions(pdiId ?? null);
+  const pdiEvidencesQuery = usePdiEvidences(pdiId ?? null);
 
   const progress = useMemo(() => {
     const list = planActions.data ?? [];
@@ -210,6 +216,82 @@ export default function PdiDetailPage() {
     }
   }, [pdi, updatePdiMutation]);
 
+  const evidences = pdiEvidencesQuery.data ?? [];
+
+  const evidencesByPlanActionId = useMemo(() => {
+    const map: Record<string, PdiEvidence[]> = {};
+    for (const ev of evidences) {
+      if (!ev.pdi_plan_action_id) continue;
+      if (!map[ev.pdi_plan_action_id]) map[ev.pdi_plan_action_id] = [];
+      map[ev.pdi_plan_action_id].push(ev);
+    }
+    return map;
+  }, [evidences]);
+
+  const evidencesByActionPlanId = useMemo(() => {
+    const map: Record<string, PdiEvidence[]> = {};
+    for (const ev of evidences) {
+      if (!ev.pdi_action_plan_id) continue;
+      if (!map[ev.pdi_action_plan_id]) map[ev.pdi_action_plan_id] = [];
+      map[ev.pdi_action_plan_id].push(ev);
+    }
+    return map;
+  }, [evidences]);
+
+  const canUploadEvidence = !!pdi && user?.role === 'employee' && pdi.status === 'active';
+
+  const handleUploadPlanEvidence = useCallback(
+    async ({ pdiActionPlanId, file }: { pdiActionPlanId: string; file: File }) => {
+      if (!pdi || !user?.id || !user.tenantId) throw new Error('Sem permissão para enviar evidências.');
+
+      let record: PdiEvidence | null = null;
+      try {
+        record = await createPdiEvidenceRecord({
+          tenantId: user.tenantId,
+          pdiId: pdi.id,
+          submittedBy: user.id,
+          pdiActionPlanId,
+          file,
+        });
+        await uploadPdiEvidenceFile({ storagePath: record.storage_path, file });
+      } catch (err) {
+        if (record) {
+          await deletePdiEvidenceRecord({ evidenceId: record.id, storagePath: record.storage_path });
+        }
+        throw err instanceof Error ? err : new Error('Falha ao enviar evidência.');
+      } finally {
+        await pdiEvidencesQuery.refetch();
+      }
+    },
+    [pdi, user?.id, user.tenantId, pdiEvidencesQuery]
+  );
+
+  const handleUploadTaskEvidence = useCallback(
+    async ({ pdiPlanActionId, file }: { pdiPlanActionId: string; file: File }) => {
+      if (!pdi || !user?.id || !user.tenantId) throw new Error('Sem permissão para enviar evidências.');
+
+      let record: PdiEvidence | null = null;
+      try {
+        record = await createPdiEvidenceRecord({
+          tenantId: user.tenantId,
+          pdiId: pdi.id,
+          submittedBy: user.id,
+          pdiPlanActionId,
+          file,
+        });
+        await uploadPdiEvidenceFile({ storagePath: record.storage_path, file });
+      } catch (err) {
+        if (record) {
+          await deletePdiEvidenceRecord({ evidenceId: record.id, storagePath: record.storage_path });
+        }
+        throw err instanceof Error ? err : new Error('Falha ao enviar evidência.');
+      } finally {
+        await pdiEvidencesQuery.refetch();
+      }
+    },
+    [pdi, user?.id, user.tenantId, pdiEvidencesQuery]
+  );
+
   if (!pdiId) {
     return (
       <MainLayout>
@@ -219,7 +301,7 @@ export default function PdiDetailPage() {
   }
 
   const isLoading =
-    pdiQuery.isLoading || actionPlans.isLoading || planActions.isLoading;
+    pdiQuery.isLoading || actionPlans.isLoading || planActions.isLoading || pdiEvidencesQuery.isLoading;
 
   if (isLoading || !pdi) {
     return (
@@ -246,6 +328,48 @@ export default function PdiDetailPage() {
         : pdi.status === 'archived'
           ? 'outline'
           : 'secondary';
+
+  const actionPlansSection = (
+    <PdiActionPlansSection
+      pdi={pdi}
+      actionPlans={actionPlans.data ?? []}
+      planActions={planActions.data ?? []}
+      createdByNames={createdByNames}
+      canEdit={canEdit}
+      canUploadEvidence={canUploadEvidence}
+      evidencesByPlanActionId={evidencesByPlanActionId}
+      evidencesByActionPlanId={evidencesByActionPlanId}
+      onUploadPlanEvidence={handleUploadPlanEvidence}
+      onUploadTaskEvidence={handleUploadTaskEvidence}
+      currentUserId={user?.id ?? ''}
+      isSavingPlan={actionPlans.createPlan.isPending || actionPlans.updatePlan.isPending}
+      isSavingAction={planActions.createAction.isPending}
+      isUpdatingAction={planActions.updateAction.isPending}
+      updatingActionId={
+        planActions.updateAction.isPending ? planActions.updateAction.variables?.actionId ?? null : null
+      }
+      isDeletingPlan={actionPlans.deletePlan.isPending}
+      isDeletingAction={planActions.deleteAction.isPending}
+      onCreatePlan={async (payload) => {
+        await actionPlans.createPlan.mutateAsync(payload);
+      }}
+      onUpdatePlan={async (planId, updates) => {
+        await actionPlans.updatePlan.mutateAsync({ planId, updates });
+      }}
+      onDeletePlan={async (planId) => {
+        await actionPlans.deletePlan.mutateAsync(planId);
+      }}
+      onCreateAction={async (payload) => {
+        await planActions.createAction.mutateAsync(payload);
+      }}
+      onUpdateAction={async (actionId, updates) => {
+        await planActions.updateAction.mutateAsync({ actionId, updates });
+      }}
+      onDeleteAction={async (actionId) => {
+        await planActions.deleteAction.mutateAsync(actionId);
+      }}
+    />
+  );
 
   return (
     <MainLayout>
@@ -346,44 +470,20 @@ export default function PdiDetailPage() {
           </>
         ) : null}
 
-        <PdiActionPlansSection
-          pdi={pdi}
-          actionPlans={actionPlans.data ?? []}
-          planActions={planActions.data ?? []}
-          createdByNames={createdByNames}
-          canEdit={canEdit}
-          currentUserId={user?.id ?? ''}
-          isSavingPlan={
-            actionPlans.createPlan.isPending || actionPlans.updatePlan.isPending
-          }
-          isSavingAction={planActions.createAction.isPending}
-          isUpdatingAction={planActions.updateAction.isPending}
-          updatingActionId={
-            planActions.updateAction.isPending
-              ? planActions.updateAction.variables?.actionId ?? null
-              : null
-          }
-          isDeletingPlan={actionPlans.deletePlan.isPending}
-          isDeletingAction={planActions.deleteAction.isPending}
-          onCreatePlan={async (payload) => {
-            await actionPlans.createPlan.mutateAsync(payload);
-          }}
-          onUpdatePlan={async (planId, updates) => {
-            await actionPlans.updatePlan.mutateAsync({ planId, updates });
-          }}
-          onDeletePlan={async (planId) => {
-            await actionPlans.deletePlan.mutateAsync(planId);
-          }}
-          onCreateAction={async (payload) => {
-            await planActions.createAction.mutateAsync(payload);
-          }}
-          onUpdateAction={async (actionId, updates) => {
-            await planActions.updateAction.mutateAsync({ actionId, updates });
-          }}
-          onDeleteAction={async (actionId) => {
-            await planActions.deleteAction.mutateAsync(actionId);
-          }}
-        />
+        {user?.role === 'manager' && user?.id ? (
+          <Tabs defaultValue="plans" className="space-y-4">
+            <TabsList className="grid w-full max-w-md grid-cols-2">
+              <TabsTrigger value="plans">Plano de ação</TabsTrigger>
+              <TabsTrigger value="evidences">Evidências</TabsTrigger>
+            </TabsList>
+            <TabsContent value="plans">{actionPlansSection}</TabsContent>
+            <TabsContent value="evidences">
+              <PdiEvidencesManagerTab pdiId={pdi.id} managerId={user.id} evidences={evidences} />
+            </TabsContent>
+          </Tabs>
+        ) : (
+          actionPlansSection
+        )}
 
         {pdi.status === 'draft' && canManage && canActivate && (
           <Card>

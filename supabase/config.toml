@@ -27,6 +27,9 @@ verify_jwt = false
 [functions.provision-tenant]
 verify_jwt = false
 
+[functions.pdi-evidence-review-notify]
+verify_jwt = false
+
 # Auth email templates (content_path relative to project root).
 # When using the Send Email webhook, the send-email Edge Function loads these HTML files and injects whitelabel placeholders.
 [auth.email.template.invite]

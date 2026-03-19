@@ -109,3 +109,29 @@ export interface PdiWithRelations extends Pdi {
   actionPlans?: PdiActionPlan[];
   progress?: PdiProgress | null;
 }
+
+export type PdiEvidenceStatus = 'pending' | 'approved' | 'rejected';
+
+export interface PdiEvidence {
+  id: string;
+  tenant_id: string;
+  pdi_id: string;
+
+  pdi_action_plan_id: string | null;
+  pdi_plan_action_id: string | null;
+
+  submitted_by: string;
+  status: PdiEvidenceStatus;
+
+  file_name: string;
+  content_type: string;
+  file_size_bytes: number;
+  storage_path: string;
+
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  feedback: string | null;
+
+  created_at: string;
+  updated_at: string;
+}

@@ -40,7 +40,8 @@ import type { ActionPlanType } from '@/constants/actionPlanTypes';
 import { Check, ChevronDown, Circle, Loader2, Plus, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-import type { Pdi, PdiActionPlan, PdiPlanAction } from '@/types/pdi';
+import { PdiEvidenceUploader } from '@/modules/pdi/components/PdiEvidenceUploader';
+import type { Pdi, PdiActionPlan, PdiPlanAction, PdiEvidence } from '@/types/pdi';
 
 function computePlanProgress(actions: PdiPlanAction[]): {
   progressPct: number;
@@ -76,6 +77,11 @@ interface PdiActionPlansSectionProps {
   planActions: PdiPlanAction[];
   createdByNames?: Record<string, string>;
   canEdit: boolean;
+  canUploadEvidence: boolean;
+  evidencesByPlanActionId: Record<string, PdiEvidence[]>;
+  evidencesByActionPlanId: Record<string, PdiEvidence[]>;
+  onUploadPlanEvidence: (payload: { pdiActionPlanId: string; file: File }) => Promise<void>;
+  onUploadTaskEvidence: (payload: { pdiPlanActionId: string; file: File }) => Promise<void>;
   currentUserId: string;
   isSavingPlan?: boolean;
   isSavingAction?: boolean;
@@ -104,6 +110,11 @@ export function PdiActionPlansSection({
   planActions,
   createdByNames = {},
   canEdit,
+  canUploadEvidence,
+  evidencesByPlanActionId,
+  evidencesByActionPlanId,
+  onUploadPlanEvidence,
+  onUploadTaskEvidence,
   currentUserId,
   isSavingPlan = false,
   isSavingAction = false,
@@ -344,28 +355,43 @@ export function PdiActionPlansSection({
                                     aria-hidden
                                   />
                                 )}
-                                {canEdit && !isThisActionUpdating ? (
-                                  <label
-                                    htmlFor={`action-${action.id}`}
-                                    className={`flex-1 text-sm cursor-pointer ${
-                                      action.completed
-                                        ? 'text-muted-foreground line-through'
-                                        : 'text-foreground'
-                                    }`}
-                                  >
-                                    {action.description}
-                                  </label>
-                                ) : (
-                                  <span
-                                    className={`flex-1 text-sm ${
-                                      action.completed
-                                        ? 'text-muted-foreground line-through'
-                                        : 'text-foreground'
-                                    }`}
-                                  >
-                                    {action.description}
-                                  </span>
-                                )}
+                                <div className="flex-1 min-w-0">
+                                  {canEdit && !isThisActionUpdating ? (
+                                    <label
+                                      htmlFor={`action-${action.id}`}
+                                      className={`text-sm cursor-pointer ${
+                                        action.completed
+                                          ? 'text-muted-foreground line-through'
+                                          : 'text-foreground'
+                                      }`}
+                                    >
+                                      {action.description}
+                                    </label>
+                                  ) : (
+                                    <span
+                                      className={`text-sm ${
+                                        action.completed
+                                          ? 'text-muted-foreground line-through'
+                                          : 'text-foreground'
+                                      }`}
+                                    >
+                                      {action.description}
+                                    </span>
+                                  )}
+
+                                  {(canUploadEvidence || (evidencesByPlanActionId[action.id]?.length ?? 0) > 0) && (
+                                    <div className="mt-3">
+                                      <PdiEvidenceUploader
+                                        label="Evidência"
+                                        canUpload={canUploadEvidence}
+                                        evidences={evidencesByPlanActionId[action.id] ?? []}
+                                        onUploadEvidence={(file) =>
+                                          onUploadTaskEvidence({ pdiPlanActionId: action.id, file })
+                                        }
+                                      />
+                                    </div>
+                                  )}
+                                </div>
                                 {canEdit && (
                                   <Button
                                     variant="ghost"
@@ -384,6 +410,19 @@ export function PdiActionPlansSection({
                             );
                           })}
                         </ul>
+                      )}
+
+                      {(canUploadEvidence || (evidencesByActionPlanId[plan.id]?.length ?? 0) > 0) && (
+                        <div className="pt-4">
+                          <PdiEvidenceUploader
+                            label="Evidência do plano"
+                            canUpload={canUploadEvidence}
+                            evidences={evidencesByActionPlanId[plan.id] ?? []}
+                            onUploadEvidence={(file) =>
+                              onUploadPlanEvidence({ pdiActionPlanId: plan.id, file })
+                            }
+                          />
+                        </div>
                       )}
                     </div>
                   </CollapsibleContent>
