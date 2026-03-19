@@ -179,7 +179,7 @@ Deno.serve(async (req) => {
         employee_id: string;
       }>;
       const employeeIds = [...new Set(activityRows.map((r) => r.employee_id).filter(Boolean))];
-      let nameMap: Record<string, string> = {};
+      const nameMap: Record<string, string> = {};
       if (employeeIds.length > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
@@ -238,7 +238,7 @@ Deno.serve(async (req) => {
         employee_id: string;
       }>;
       const employeeIds = [...new Set(activityRows.map((r) => r.employee_id).filter(Boolean))];
-      let nameMap: Record<string, string> = {};
+      const nameMap: Record<string, string> = {};
       if (employeeIds.length > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
@@ -278,6 +278,8 @@ Deno.serve(async (req) => {
         .select('id')
         .eq('employee_id', userId)
         .eq('status', 'active')
+        .order('updated_at', { ascending: false })
+        .limit(1)
         .maybeSingle(),
       supabase.from('pdi_action_plans').select('id', { count: 'exact', head: true }),
       supabase.from('pdi_action_plans').select('id', { count: 'exact', head: true }).lt('delivery_date', today),

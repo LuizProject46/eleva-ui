@@ -6,6 +6,7 @@
 import { supabase } from '@/lib/supabase';
 import type {
   DashboardRecentActivityItem,
+  DashboardRole,
   DashboardEmployeeMetrics,
   DashboardEvaluationCounts,
 } from '@/types/dashboard';
@@ -115,18 +116,11 @@ export async function getCloseToDeadlineActionPlans(): Promise<number> {
  * Recent PDI activity. For HR/Manager returns items with employee names; for employee, only own PDIs.
  */
 export async function getRecentActivity(
-  limit: number = RECENT_ACTIVITY_LIMIT
+  limit: number = RECENT_ACTIVITY_LIMIT,
+  userRole: DashboardRole
 ): Promise<DashboardRecentActivityItem[]> {
   const userId = await getCurrentUserId();
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', userId)
-    .single();
-
-  const role = (profile?.role ?? 'employee') as string;
-  const isEmployee = role === 'employee';
+  const isEmployee = userRole === 'employee';
   const actualLimit = isEmployee ? Math.min(limit, RECENT_ACTIVITY_LIMIT_EMPLOYEE) : limit;
 
   if (isEmployee) {
@@ -163,7 +157,7 @@ export async function getRecentActivity(
     employee_id: string;
   }>;
   const employeeIds = [...new Set(activityRows.map((r) => r.employee_id).filter(Boolean))];
-  let nameMap: Record<string, string> = {};
+  const nameMap: Record<string, string> = {};
 
   if (employeeIds.length > 0) {
     const { data: profiles } = await supabase
@@ -199,6 +193,8 @@ export async function getEmployeePdiSummary(): Promise<DashboardEmployeeMetrics>
       .select('id')
       .eq('employee_id', userId)
       .eq('status', 'active')
+      .order('updated_at', { ascending: false })
+      .limit(1)
       .maybeSingle(),
     supabase
       .from('pdi_action_plans')

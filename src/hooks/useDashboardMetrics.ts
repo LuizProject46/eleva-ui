@@ -109,7 +109,10 @@ export function useRecentActivity(
   const { user } = useAuth();
   const enabled = !!user;
   const effectiveLimit = user?.role === 'employee' ? RECENT_ACTIVITY_LIMIT_EMPLOYEE : limit;
-  const fetchFn = useCallback(() => getRecentActivity(effectiveLimit), [effectiveLimit]);
+  const fetchFn = useCallback(
+    () => getRecentActivity(effectiveLimit, user?.role ?? 'employee'),
+    [effectiveLimit, user?.role]
+  );
   return useDashboardMetric(enabled, fetchFn);
 }
 
