@@ -33,6 +33,7 @@ import Mentoring from "@/pages/Mentoring";
 import Assessment from "@/pages/Assessment";
 import Colaboradores from "@/pages/Colaboradores";
 import EmployeeProfile from "@/pages/EmployeeProfile";
+import NineBoxPage from "@/pages/NineBoxPage";
 import PdiList from "@/pages/PdiList";
 import PdiDetail from "@/pages/PdiDetail";
 import Courses from "@/pages/Courses";
@@ -112,6 +113,7 @@ function getPageTitle(pathname: string): string {
     "/mentoring": "Mentoria",
     "/assessment": "Avaliação",
     "/employees": "Colaboradores",
+    "/nine-box": "Matriz 9Box",
     "/pdis": "PDIs",
     "/courses": "Cursos",
     "/settings": "Configurações",
@@ -158,6 +160,7 @@ function AppRoutes() {
       <Route path="/assessment" element={<ProtectedRoute><Assessment /></ProtectedRoute>} />
       <Route path="/employees" element={<ProtectedRoute><Colaboradores /></ProtectedRoute>} />
       <Route path="/employees/:userId" element={<ProtectedRoute><EmployeeProfile /></ProtectedRoute>} />
+      <Route path="/nine-box" element={<ProtectedRoute><NineBoxPage /></ProtectedRoute>} />
       <Route path="/pdis" element={<ProtectedRoute><PdiList /></ProtectedRoute>} />
       <Route path="/pdis/:pdiId" element={<ProtectedRoute><PdiDetail /></ProtectedRoute>} />
       <Route path="/courses" element={<ProtectedRoute><Courses /></ProtectedRoute>} />

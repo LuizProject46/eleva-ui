@@ -16,6 +16,7 @@ import {
   Lock,
   GraduationCap,
   Building2,
+  Grid3x3,
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
@@ -45,6 +46,7 @@ const managerNavItems = [
   // { icon: Users, label: 'Mentorias', path: '/mentoring' },
   { icon: Brain, label: 'Teste Comportamental', path: '/assessment' },
   { icon: ClipboardList, label: 'PDI', path: '/pdis' },
+  { icon: Grid3x3, label: 'Matriz 9Box', path: '/nine-box' },
   { icon: UserPlus, label: 'Minha Equipe', path: '/employees' },
 ];
 
@@ -56,6 +58,7 @@ const hrNavItems = [
   // { icon: Users, label: 'Mentorias', path: '/mentoring' },
   { icon: Brain, label: 'Teste Comportamental', path: '/assessment' },
   { icon: ClipboardList, label: 'PDI', path: '/pdis' },
+  { icon: Grid3x3, label: 'Matriz 9Box', path: '/nine-box' },
   { icon: UserPlus, label: 'Colaboradores', path: '/employees' },
 ];
 
