@@ -241,7 +241,7 @@ export default function NineBoxPage() {
   const isCompetencyMode = mode === 'competency';
 
   const modeLabel = isCompetencyMode
-    ? `Competências (2º período${periodName ? `: ${periodName}` : ''})`
+    ? `Competências (a partir do 2º ciclo${periodName ? `: ${periodName}` : ''})`
     : 'Manual (legado)';
 
   const openCreateModal = (employeeId: string | null, employeeName: string | null) => {
@@ -322,7 +322,7 @@ export default function NineBoxPage() {
                 {periodsInNineBoxYear.map((period) => (
                   <SelectItem key={period.id} value={period.id}>
                     {period.name}
-                    {isEvaluationPeriodCompetencyNineBox(period) ? ' · Competências' : ''}
+                    {isEvaluationPeriodCompetencyNineBox(period, periods) ? ' · Competências' : ''}
                   </SelectItem>
                 ))}
               </SelectContent>

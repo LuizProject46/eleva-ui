@@ -129,6 +129,21 @@ When a tenant is successfully created (tenant record and admin user exist), the 
 
 If sending the email fails (e.g. Resend error, missing key), the tenant and user are **not** rolled back; the failure is logged and the API response may include `onboarding_email_sent: false`. For high-security scenarios, users can change their password after first login (e.g. via "Esqueci a senha" or Settings).
 
+## Employee invites (`invite-employee`) and redirect URL
+
+When RH invites a user, Supabase Auth needs a **`redirectTo`** URL so the e-mail link sends the invitee to the right app host and tenant. The app resolves the tenant from **`/login?tenant={slug}`** (query param takes precedence over subdomain in `TenantContext`).
+
+**How the Edge Function picks the redirect origin (first match wins):**
+
+1. **`client_origin`** in the JSON body — sent by the web app as `window.location.origin`. The server accepts it only if the host is `localhost`, `127.0.0.1`, ends with **`.vercel.app`**, or the origin matches **`tenants.app_url`** or **`SITE_URL`**. This keeps parallel Vercel preview deployments correct without changing secrets per branch.
+2. **`INVITE_REDIRECT_ORIGIN`** (optional Edge Function secret) — full origin, e.g. `https://branch-name.vercel.app`. Overrides tenant `app_url` and is useful when `SITE_URL` must stay a shared value for other jobs but invites should target another host.
+3. If **`SITE_URL`** is set and its hostname ends with **`.vercel.app`**, the function uses **`SITE_URL` only** (ignores `tenants.app_url`) so staging data with production `app_url` does not send users to production.
+4. Otherwise: **`tenants.app_url`**, then **`SITE_URL`** (whitelabel production behavior).
+
+**Supabase Dashboard:** add every origin used in invite redirects under **Authentication → URL configuration → Redirect URLs** (e.g. your Vercel preview URL and `/login` path as required by your project settings).
+
+**Secrets summary for `invite-employee`:** `SITE_URL` (see above), optional **`INVITE_REDIRECT_ORIGIN`** for advanced routing.
+
 ## Backoffice pages
 
 - **`/backoffice`** – Redirects to `/backoffice/tenants`.

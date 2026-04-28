@@ -6,7 +6,7 @@ import { useTenant } from '@/contexts/TenantContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Building2, User, Save, CalendarClock, Upload, Trash2 } from 'lucide-react';
+import { Building2, User, Save, CalendarClock, Upload, Trash2, KeyRound, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { isHexColor, normalizeHex } from '@/lib/branding';
 import { ImageUpload } from '@/components/settings/ImageUpload';
@@ -51,6 +51,13 @@ export default function Settings() {
   const [profileAvatarRemoveRequested, setProfileAvatarRemoveRequested] = useState(false);
   const [profileAvatarError, setProfileAvatarError] = useState<string | null>(null);
   const profileAvatarInputRef = useRef<HTMLInputElement>(null);
+
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPasswordFields, setShowNewPasswordFields] = useState(false);
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
 
   useEffect(() => {
     setCompanyName(brand.companyName);
@@ -209,6 +216,53 @@ export default function Settings() {
     }
   };
 
+  const handleChangePassword = async () => {
+    if (!user?.email) {
+      toast.error('Não foi possível identificar seu e-mail.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error('A nova senha deve ter no mínimo 6 caracteres.');
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      toast.error('As senhas não coincidem.');
+      return;
+    }
+
+    setIsSavingPassword(true);
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: currentPassword,
+      });
+      if (signInError) {
+        const msg = signInError.message?.toLowerCase() ?? '';
+        if (msg.includes('invalid') && msg.includes('credential')) {
+          toast.error('Senha atual incorreta.');
+        } else {
+          toast.error(signInError.message ?? 'Não foi possível validar a senha atual.');
+        }
+        return;
+      }
+
+      const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+      if (updateError) {
+        toast.error(updateError.message ?? 'Não foi possível alterar a senha.');
+        return;
+      }
+
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+      toast.success('Senha alterada com sucesso');
+    } catch {
+      toast.error('Erro inesperado. Tente novamente.');
+    } finally {
+      setIsSavingPassword(false);
+    }
+  };
+
   return (
     <MainLayout>
       <div className="max-w-4xl animate-fade-in">
@@ -350,6 +404,91 @@ export default function Settings() {
                 </Button>
               </div>
             )}
+          </div>
+
+          <div className="card-elevated p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <KeyRound className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h2 className="font-display font-semibold text-foreground">Segurança</h2>
+                <p className="text-sm text-muted-foreground">Altere a senha da sua conta</p>
+              </div>
+            </div>
+
+            <div className="space-y-4 max-w-md">
+              <div className="space-y-2">
+                <Label htmlFor="settings-current-password">Senha atual</Label>
+                <div className="relative">
+                  <Input
+                    id="settings-current-password"
+                    type={showCurrentPassword ? 'text' : 'password'}
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    autoComplete="current-password"
+                    placeholder="••••••••"
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    aria-label={showCurrentPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                  >
+                    {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="settings-new-password">Nova senha</Label>
+                <div className="relative">
+                  <Input
+                    id="settings-new-password"
+                    type={showNewPasswordFields ? 'text' : 'password'}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    autoComplete="new-password"
+                    placeholder="Mínimo 6 caracteres"
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPasswordFields((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    aria-label={showNewPasswordFields ? 'Ocultar senhas' : 'Mostrar senhas'}
+                  >
+                    {showNewPasswordFields ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="settings-confirm-password">Confirmar nova senha</Label>
+                <Input
+                  id="settings-confirm-password"
+                  type={showNewPasswordFields ? 'text' : 'password'}
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  autoComplete="new-password"
+                  placeholder="Repita a nova senha"
+                />
+              </div>
+              <div className="flex justify-end pt-2 border-t border-border">
+                <Button
+                  type="button"
+                  onClick={handleChangePassword}
+                  disabled={
+                    isSavingPassword ||
+                    !currentPassword.trim() ||
+                    !newPassword.trim() ||
+                    !confirmNewPassword.trim()
+                  }
+                  variant="outline"
+                >
+                  {isSavingPassword ? 'Salvando...' : 'Alterar senha'}
+                </Button>
+              </div>
+            </div>
           </div>
 
           {showBrandSettings && tenant?.id && (

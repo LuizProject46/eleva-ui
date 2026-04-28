@@ -183,14 +183,23 @@ export function PeriodicityConfig({ tenantId }: PeriodicityConfigProps) {
       return;
     }
 
-    // TODO: Uncomment this when we have a way to delete the periodicity reminders.
-    // const { error: deleteError } = await supabase.from('periodicity_reminder_sent').delete().eq('tenant_id', tenantId).eq('entity_type', entityType);
-
-    // if (deleteError) {
-    //   toast.error(deleteError.message ?? 'Erro ao deletar notificações');
-    //   setSavingEntity(null);
-    //   return;
-    // }
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      const { error: syncError } = await supabase.functions.invoke('reset-periodicity-reminders', {
+        body: { entity_type: entityType },
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (syncError) {
+        toast.error(
+          syncError.message ??
+            'Configuração salva, mas não foi possível sincronizar períodos e lembretes. Tente novamente ou avise o suporte.'
+        );
+        setSavingEntity(null);
+        return;
+      }
+    }
 
     toast.success(`Configuração de ${label} salva`);
     setSavingEntity(null);

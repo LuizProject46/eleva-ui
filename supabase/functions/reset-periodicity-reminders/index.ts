@@ -100,6 +100,36 @@ Deno.serve(async (req) => {
     );
   }
 
+  const tenantId = profile.tenant_id as string;
+
+  const { error: genError } = await supabaseAdmin.rpc('generate_evaluation_periods_for_entity', {
+    p_tenant_id: tenantId,
+    p_entity_type: entityType,
+    p_past_cycles: 2,
+    p_future_cycles: 6,
+  });
+
+  if (genError) {
+    console.error('generate_evaluation_periods_for_entity', genError);
+    return new Response(
+      JSON.stringify({ error: genError.message ?? 'Erro ao sincronizar períodos' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  const { error: pruneError } = await supabaseAdmin.rpc('prune_orphan_auto_evaluation_periods', {
+    p_tenant_id: tenantId,
+    p_entity_type: entityType,
+  });
+
+  if (pruneError) {
+    console.error('prune_orphan_auto_evaluation_periods', pruneError);
+    return new Response(
+      JSON.stringify({ error: pruneError.message ?? 'Erro ao remover períodos órfãos' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
   return new Response(JSON.stringify({ ok: true }), {
     status: 200,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },

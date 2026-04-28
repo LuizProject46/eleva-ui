@@ -77,7 +77,7 @@ export async function getNineBoxEvaluationPeriod(
 ): Promise<NineBoxEvaluationPeriod | null> {
   const { data, error } = await supabase
     .from('evaluation_periods')
-    .select('id, name, year, semester, starts_at')
+    .select('id, name, year, semester, starts_at, is_auto_generated, auto_cycle_start_date')
     .eq('tenant_id', tenantId)
     .eq('id', periodId)
     .or('source_entity_type.is.null,source_entity_type.eq.evaluation')
@@ -122,8 +122,9 @@ export async function listNineBoxMatrixData(
     return { mode: 'legacy', period: null, rows };
   }
 
-  const period = await getNineBoxEvaluationPeriod(tenantId, periodId);
-  if (!period || !isEvaluationPeriodCompetencyNineBox(period)) {
+  const evaluationPeriods = await listTenantEvaluationPeriods(tenantId, { order: 'desc' });
+  const period = evaluationPeriods.find((p) => p.id === periodId) ?? null;
+  if (!period || !isEvaluationPeriodCompetencyNineBox(period, evaluationPeriods)) {
     const rows = await listNineBoxMatrixRows(tenantId);
     return { mode: 'legacy', period, rows };
   }

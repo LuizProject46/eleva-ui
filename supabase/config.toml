@@ -12,10 +12,16 @@ verify_jwt = false
 [functions.delete-user]
 verify_jwt = false
 
+[functions.set-user-password]
+verify_jwt = false
+
 [functions.create-notification]
 verify_jwt = false
 
 [functions.check-periodicity-deadlines]
+verify_jwt = false
+
+[functions.auto-generate-evaluation-periods]
 verify_jwt = false
 
 [functions.get-dashboard-metrics]
@@ -28,6 +34,9 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.pdi-evidence-review-notify]
+verify_jwt = false
+
+[functions.reset-periodicity-reminders]
 verify_jwt = false
 
 # Auth email templates (content_path relative to project root).

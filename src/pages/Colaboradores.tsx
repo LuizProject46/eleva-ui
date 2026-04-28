@@ -9,6 +9,8 @@ import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -27,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Users, UserPlus, ArrowUpDown, ArrowUp, ArrowDown, Pencil, Trash2, Upload, User } from 'lucide-react';
+import { Users, UserPlus, ArrowUpDown, ArrowUp, ArrowDown, Pencil, Trash2, Upload, User, KeyRound, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Pagination,
@@ -51,6 +53,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { UserAvatar } from '@/components/UserAvatar';
 import { uploadAvatar, validateAvatarFile } from '@/services/avatarService';
+import { applyColaboradoresProfileListScope } from '@/lib/colaboradoresProfileScope';
 
 const ROLE_LABELS: Record<string, string> = {
   hr: 'RH',
@@ -147,6 +150,11 @@ export default function Colaboradores() {
   const [deleteConfirmProfile, setDeleteConfirmProfile] = useState<Profile | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [userLimitAlertMessage, setUserLimitAlertMessage] = useState<string | null>(null);
+  const [passwordDialogProfile, setPasswordDialogProfile] = useState<Profile | null>(null);
+  const [adminNewPassword, setAdminNewPassword] = useState('');
+  const [adminConfirmPassword, setAdminConfirmPassword] = useState('');
+  const [showAdminPasswordFields, setShowAdminPasswordFields] = useState(false);
+  const [settingPasswordId, setSettingPasswordId] = useState<string | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -185,8 +193,8 @@ export default function Colaboradores() {
     if (filterDepartment !== 'all') {
       query = query.eq('department', filterDepartment);
     }
-    if (isManagerRole && user?.id) {
-      query = query.eq('manager_id', user.id);
+    if (user?.id && user.role) {
+      query = applyColaboradoresProfileListScope(query, user.role, user.id);
     }
 
     if (!isManagerRole && filterManager && filterManager !== 'all') {
@@ -234,7 +242,23 @@ export default function Colaboradores() {
       })
     );
     setLoading(false);
-  }, [canManage, isManagerRole, page, pageSize, filterDepartment, filterManager, debouncedName, debouncedEmail, debouncedPosition, filterActiveStatus, sortBy, sortAsc, user?.id]);
+  }, [
+    canManage,
+    isManagerRole,
+    page,
+    pageSize,
+    filterDepartment,
+    filterManager,
+    debouncedName,
+    debouncedEmail,
+    debouncedPosition,
+    filterActiveStatus,
+    sortBy,
+    sortAsc,
+    user?.id,
+    user?.role,
+    user?.tenantId,
+  ]);
 
   const fetchManagers = useCallback(async () => {
     if (!canManage || !user?.tenantId) return;
@@ -361,6 +385,61 @@ export default function Colaboradores() {
     setDeletingId(null);
   };
 
+  const openSetPasswordDialog = (p: Profile) => {
+    setPasswordDialogProfile(p);
+    setAdminNewPassword('');
+    setAdminConfirmPassword('');
+    setShowAdminPasswordFields(false);
+  };
+
+  const handleSetUserPasswordSubmit = async () => {
+    const target = passwordDialogProfile;
+    if (!target) return;
+    if (adminNewPassword.length < 6) {
+      toast.error('A senha deve ter no mínimo 6 caracteres.');
+      return;
+    }
+    if (adminNewPassword !== adminConfirmPassword) {
+      toast.error('As senhas não coincidem.');
+      return;
+    }
+
+    setSettingPasswordId(target.id);
+    try {
+      const { data: { session }, error: sessionError } = await supabase.auth.refreshSession();
+      if (sessionError || !session?.access_token) {
+        toast.error('Sessão expirada. Faça login novamente.');
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke('set-user-password', {
+        body: { user_id: target.id, new_password: adminNewPassword },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (data && typeof data === 'object' && 'error' in data && data.error) {
+        toast.error(String(data.error));
+        return;
+      }
+
+      if (error) {
+        toast.error(error.message ?? 'Erro ao definir senha.');
+        return;
+      }
+
+      toast.success('Senha definida com sucesso.');
+      setPasswordDialogProfile(null);
+      setAdminNewPassword('');
+      setAdminConfirmPassword('');
+    } catch {
+      toast.error('Erro ao definir senha. Tente novamente.');
+    } finally {
+      setSettingPasswordId(null);
+    }
+  };
+
   const handleSort = (column: 'name' | 'email' | 'department' | 'position') => {
     if (sortBy === column) {
       setSortAsc((a) => !a);
@@ -400,6 +479,7 @@ export default function Colaboradores() {
           cost_center: form.cost_center || undefined,
           manager_id: form.manager_id || undefined,
           role: form.role,
+          client_origin: typeof window !== 'undefined' ? window.location.origin : undefined,
         },
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -782,6 +862,18 @@ export default function Colaboradores() {
                                 <Pencil className="h-4 w-4" />
                               </Button>
                             )}
+                            {isHR() && p.is_active !== false && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => openSetPasswordDialog(p)}
+                                disabled={settingPasswordId === p.id}
+                                aria-label="Definir senha"
+                              >
+                                <KeyRound className="h-4 w-4" />
+                              </Button>
+                            )}
                             {isHR() && (
                               <Button
                                 type="button"
@@ -1097,6 +1189,84 @@ export default function Colaboradores() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog
+        open={!!passwordDialogProfile}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPasswordDialogProfile(null);
+            setAdminNewPassword('');
+            setAdminConfirmPassword('');
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Definir nova senha</DialogTitle>
+            <DialogDescription>
+              {passwordDialogProfile
+                ? `Nova senha de acesso para ${passwordDialogProfile.name} (${passwordDialogProfile.email}).`
+                : null}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="admin-new-password">Nova senha</Label>
+              <div className="relative">
+                <Input
+                  id="admin-new-password"
+                  type={showAdminPasswordFields ? 'text' : 'password'}
+                  value={adminNewPassword}
+                  onChange={(e) => setAdminNewPassword(e.target.value)}
+                  autoComplete="new-password"
+                  placeholder="Mínimo 6 caracteres"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowAdminPasswordFields((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label={showAdminPasswordFields ? 'Ocultar senhas' : 'Mostrar senhas'}
+                >
+                  {showAdminPasswordFields ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="admin-confirm-password">Confirmar senha</Label>
+              <Input
+                id="admin-confirm-password"
+                type={showAdminPasswordFields ? 'text' : 'password'}
+                value={adminConfirmPassword}
+                onChange={(e) => setAdminConfirmPassword(e.target.value)}
+                autoComplete="new-password"
+                placeholder="Repita a senha"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setPasswordDialogProfile(null)}
+              disabled={!!settingPasswordId}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSetUserPasswordSubmit}
+              disabled={
+                !!settingPasswordId ||
+                !adminNewPassword.trim() ||
+                !adminConfirmPassword.trim()
+              }
+            >
+              {settingPasswordId ? 'Salvando...' : 'Salvar senha'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
         <DialogContent

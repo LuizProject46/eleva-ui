@@ -1,13 +1,30 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, Link, Navigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { UserRole } from '@/contexts/AuthContext';
+import { UserRole, useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { UserAvatar } from '@/components/UserAvatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
-import { ArrowLeft, User } from 'lucide-react';
+import { ArrowLeft, Grid3x3, User, KeyRound, Eye, EyeOff } from 'lucide-react';
+import {
+  getNineBoxQuadrantMeta,
+  nineBoxBadgeClassName,
+} from '@/modules/nineBox/nineBoxQuadrants';
+import { getNineBoxEvaluationByEmployee } from '@/services/nineBoxService';
+import { cn } from '@/lib/utils';
 
 const ROLE_LABELS: Record<string, string> = {
   hr: 'RH',
@@ -26,20 +43,27 @@ interface ProfileRow {
   manager_name?: string | null;
   avatar_url?: string | null;
   avatar_thumb_url?: string | null;
+  is_active?: boolean | null;
 }
 
 export default function EmployeeProfile() {
   const { userId } = useParams<{ userId: string }>();
+  const { user, canManageUsers, isHR } = useAuth();
 
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [adminNewPassword, setAdminNewPassword] = useState('');
+  const [adminConfirmPassword, setAdminConfirmPassword] = useState('');
+  const [showAdminPasswordFields, setShowAdminPasswordFields] = useState(false);
+  const [isSettingPassword, setIsSettingPassword] = useState(false);
 
   const fetchProfile = useCallback(async () => {
     if (!userId) return;
     setIsLoadingProfile(true);
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, name, email, role, department, position, manager_id, avatar_url, avatar_thumb_url')
+      .select('id, name, email, role, department, position, manager_id, avatar_url, avatar_thumb_url, is_active')
       .eq('id', userId)
       .maybeSingle();
     if (error) {
@@ -68,6 +92,76 @@ export default function EmployeeProfile() {
   useEffect(() => {
     fetchProfile();
   }, [fetchProfile]);
+
+  const showNineBoxBlock = Boolean(user?.tenantId && userId && canManageUsers());
+
+  const canHrSetPasswordForProfile =
+    isHR() &&
+    profile &&
+    user?.id &&
+    profile.id !== user.id &&
+    profile.is_active !== false;
+
+  const handleSetUserPasswordSubmit = async () => {
+    if (!profile) return;
+    if (adminNewPassword.length < 6) {
+      toast.error('A senha deve ter no mínimo 6 caracteres.');
+      return;
+    }
+    if (adminNewPassword !== adminConfirmPassword) {
+      toast.error('As senhas não coincidem.');
+      return;
+    }
+
+    setIsSettingPassword(true);
+    try {
+      const { data: { session }, error: sessionError } = await supabase.auth.refreshSession();
+      if (sessionError || !session?.access_token) {
+        toast.error('Sessão expirada. Faça login novamente.');
+        return;
+      }
+
+      const { data, error } = await supabase.functions.invoke('set-user-password', {
+        body: { user_id: profile.id, new_password: adminNewPassword },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      if (data && typeof data === 'object' && 'error' in data && data.error) {
+        toast.error(String(data.error));
+        return;
+      }
+
+      if (error) {
+        toast.error(error.message ?? 'Erro ao definir senha.');
+        return;
+      }
+
+      toast.success('Senha definida com sucesso.');
+      setPasswordDialogOpen(false);
+      setAdminNewPassword('');
+      setAdminConfirmPassword('');
+    } catch {
+      toast.error('Erro ao definir senha. Tente novamente.');
+    } finally {
+      setIsSettingPassword(false);
+    }
+  };
+
+  const { data: nineBoxEval, isLoading: nineBoxLoading } = useQuery({
+    queryKey: ['nine-box-employee', user?.tenantId, userId],
+    queryFn: () => getNineBoxEvaluationByEmployee(user!.tenantId!, userId!),
+    enabled: showNineBoxBlock,
+  });
+
+  const nineBoxMeta = useMemo(
+    () =>
+      nineBoxEval != null
+        ? getNineBoxQuadrantMeta(nineBoxEval.performance, nineBoxEval.potential)
+        : null,
+    [nineBoxEval]
+  );
 
   if (!userId) {
     return <Navigate to="/employees" replace />;
@@ -154,9 +248,129 @@ export default function EmployeeProfile() {
               {profile.manager_name && (
                 <p className="text-sm text-muted-foreground">Gestor: {profile.manager_name}</p>
               )}
+              {canHrSetPasswordForProfile && (
+                <div className="pt-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => {
+                      setAdminNewPassword('');
+                      setAdminConfirmPassword('');
+                      setShowAdminPasswordFields(false);
+                      setPasswordDialogOpen(true);
+                    }}
+                  >
+                    <KeyRound className="h-4 w-4" />
+                    Definir nova senha
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </div>
+
+        <Dialog
+          open={passwordDialogOpen}
+          onOpenChange={(open) => {
+            setPasswordDialogOpen(open);
+            if (!open) {
+              setAdminNewPassword('');
+              setAdminConfirmPassword('');
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Definir nova senha</DialogTitle>
+              <DialogDescription>
+                Nova senha de acesso para {profile.name} ({profile.email}).
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="employee-profile-new-password">Nova senha</Label>
+                <div className="relative">
+                  <Input
+                    id="employee-profile-new-password"
+                    type={showAdminPasswordFields ? 'text' : 'password'}
+                    value={adminNewPassword}
+                    onChange={(e) => setAdminNewPassword(e.target.value)}
+                    autoComplete="new-password"
+                    placeholder="Mínimo 6 caracteres"
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminPasswordFields((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    aria-label={showAdminPasswordFields ? 'Ocultar senhas' : 'Mostrar senhas'}
+                  >
+                    {showAdminPasswordFields ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="employee-profile-confirm-password">Confirmar senha</Label>
+                <Input
+                  id="employee-profile-confirm-password"
+                  type={showAdminPasswordFields ? 'text' : 'password'}
+                  value={adminConfirmPassword}
+                  onChange={(e) => setAdminConfirmPassword(e.target.value)}
+                  autoComplete="new-password"
+                  placeholder="Repita a senha"
+                />
+              </div>
+            </div>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setPasswordDialogOpen(false)}
+                disabled={isSettingPassword}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSetUserPasswordSubmit}
+                disabled={
+                  isSettingPassword ||
+                  !adminNewPassword.trim() ||
+                  !adminConfirmPassword.trim()
+                }
+              >
+                {isSettingPassword ? 'Salvando...' : 'Salvar senha'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {showNineBoxBlock && nineBoxLoading ? (
+          <div className="rounded-lg border border-border bg-card p-4 md:p-6">
+            <Skeleton className="h-5 w-40 mb-3" />
+            <Skeleton className="h-8 w-56 rounded-md" />
+          </div>
+        ) : null}
+
+        {showNineBoxBlock && !nineBoxLoading && nineBoxEval && nineBoxMeta ? (
+          <div className="rounded-lg border border-border bg-card p-4 md:p-6 space-y-2">
+            <h2 className="font-semibold text-foreground flex items-center gap-2">
+              <Grid3x3 className="w-5 h-5 text-muted-foreground" />
+              Matriz 9Box
+            </h2>
+            <p className="text-xs text-muted-foreground">Posição atual neste quadrante.</p>
+            <span
+              className={cn(
+                'inline-flex items-center rounded-md border px-3 py-1.5 text-sm font-medium',
+                nineBoxBadgeClassName(nineBoxMeta.tier)
+              )}
+            >
+              {nineBoxMeta.label}
+            </span>
+          </div>
+        ) : null}
 
         <div className="rounded-lg border border-border bg-card p-4 md:p-6 space-y-4">
           <h2 className="font-semibold text-foreground flex items-center gap-2">

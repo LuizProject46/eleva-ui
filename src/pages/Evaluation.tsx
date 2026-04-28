@@ -609,7 +609,6 @@ export default function Evaluation() {
   const [formTargetRole, setFormTargetRole] = useState<UserRole | null>(null);
   const [formEvaluatedId, setFormEvaluatedId] = useState<string>('');
   const [formEvaluatedRole, setFormEvaluatedRole] = useState<UserRole | null>(null);
-  const [formPeriodId, setFormPeriodId] = useState<string>('none');
   const [evaluatedSearchQuery, setEvaluatedSearchQuery] = useState('');
   const [evaluatedSearchResults, setEvaluatedSearchResults] = useState<ProfileOption[]>([]);
   const [evaluatedSearchLoading, setEvaluatedSearchLoading] = useState(false);
@@ -1195,7 +1194,20 @@ export default function Evaluation() {
         return;
       }
 
-      const periodId = formPeriodId === 'none' ? null : formPeriodId;
+      const { data: resolvedPeriodId, error: periodRpcError } = await supabase.rpc(
+        'resolve_evaluation_period_id_for_submission'
+      );
+      if (periodRpcError) {
+        toast({
+          title: 'Erro ao resolver período da avaliação',
+          description: periodRpcError.message,
+          variant: 'destructive',
+        });
+        setSubmitting(false);
+        return;
+      }
+
+      const periodId = typeof resolvedPeriodId === 'string' ? resolvedPeriodId : null;
       const scores = competencies.map((c) => formScores[c.id] ?? 0);
       const overallScore = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : null;
 
@@ -1276,7 +1288,6 @@ export default function Evaluation() {
       setFormEvaluatedId('');
       setFormEvaluatedRole(null);
       setFormEvaluatedName('');
-      setFormPeriodId('none');
       setFormScores({});
       setFormComments({});
       setFormFeedbackText('');
@@ -1500,25 +1511,6 @@ export default function Evaluation() {
                     onSelect={onSelectEvaluated}
                     placeholder="Buscar por nome..."
                   />
-                </div>
-              )}
-
-              {formType !== 'direct_feedback' && (
-                <div className="space-y-2">
-                  <Label>Período</Label>
-                  <Select value={formPeriodId} onValueChange={setFormPeriodId}>
-                    <SelectTrigger className="max-w-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Sem período</SelectItem>
-                      {periods.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 </div>
               )}
 
