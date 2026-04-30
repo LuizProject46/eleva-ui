@@ -29,6 +29,7 @@ import ResetPassword from "@/pages/ResetPassword";
 import Dashboard from "@/pages/Dashboard";
 import Onboarding from "@/pages/Onboarding";
 import Evaluation from "@/pages/Evaluation";
+import { ObjectivesEvaluationPage } from "@/pages/evaluation/ObjectivesEvaluationPage";
 import Mentoring from "@/pages/Mentoring";
 import Assessment from "@/pages/Assessment";
 import Colaboradores from "@/pages/Colaboradores";
@@ -98,6 +99,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function getPageTitle(pathname: string): string {
   if (pathname.startsWith("/employees/") && pathname !== "/employees") return "Perfil";
   if (pathname.startsWith("/pdis/") && pathname !== "/pdis") return "PDI";
+  if (pathname.startsWith("/evaluation/objectives")) return "Objetivos";
   if (pathname.startsWith("/courses/assignment/")) {
     if (pathname.includes("/questionnaire")) return "Questionário";
     if (pathname.includes("/start")) return "Curso";
@@ -156,6 +158,10 @@ function AppRoutes() {
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
       <Route path="/evaluation" element={<ProtectedRoute><Evaluation /></ProtectedRoute>} />
+      <Route
+        path="/evaluation/objectives"
+        element={<ProtectedRoute><ObjectivesEvaluationPage /></ProtectedRoute>}
+      />
       <Route path="/mentoring" element={<ProtectedRoute><Mentoring /></ProtectedRoute>} />
       <Route path="/assessment" element={<ProtectedRoute><Assessment /></ProtectedRoute>} />
       <Route path="/employees" element={<ProtectedRoute><Colaboradores /></ProtectedRoute>} />

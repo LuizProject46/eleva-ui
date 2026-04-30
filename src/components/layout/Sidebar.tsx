@@ -1,15 +1,16 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import type { LucideIcon } from 'lucide-react';
 import {
   LayoutDashboard,
   Users,
   UserPlus,
-  ClipboardCheck,
   UserCheck,
   Brain,
   LogOut,
   Settings,
   ChevronRight,
+  ChevronDown,
   Award,
   ClipboardList,
   Gamepad2,
@@ -20,46 +21,56 @@ import {
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBrand } from '@/contexts/BrandContext';
 import { useMobileMenu } from '@/contexts/MobileMenuContext';
 import { UserAvatar } from '@/components/UserAvatar';
 import { cn } from '@/lib/utils';
 
-const employeeNavItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-  // { icon: ClipboardCheck, label: 'Trilha de Desenvolvimento', path: '/onboarding' },
-  { icon: GraduationCap, label: 'Meus Cursos', path: '/courses' },
-  { icon: Award, label: 'Certificados', path: '/certificates' },
-  { icon: UserCheck, label: 'Avaliação/Feedback', path: '/evaluation' },
-  // { icon: Users, label: 'Mentoria', path: '/mentoring' },
-  { icon: Brain, label: 'Teste Comportamental', path: '/assessment' },
-  { icon: ClipboardList, label: 'PDI', path: '/pdis' },
+interface NavLeafItem {
+  kind: 'leaf';
+  icon: LucideIcon;
+  label: string;
+  path: string;
+}
+
+interface NavEvaluationsGroup {
+  kind: 'evaluations';
+  icon: LucideIcon;
+  sectionLabel: string;
+}
+
+type SidebarNavItem = NavLeafItem | NavEvaluationsGroup;
+
+const employeeNavItems: SidebarNavItem[] = [
+  { kind: 'leaf', icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
+  { kind: 'leaf', icon: GraduationCap, label: 'Meus Cursos', path: '/courses' },
+  { kind: 'leaf', icon: Award, label: 'Certificados', path: '/certificates' },
+  { kind: 'evaluations', icon: UserCheck, sectionLabel: 'Avaliações' },
+  { kind: 'leaf', icon: Brain, label: 'Teste Comportamental', path: '/assessment' },
+  { kind: 'leaf', icon: ClipboardList, label: 'PDI', path: '/pdis' },
 ];
 
-const managerNavItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-  // { icon: ClipboardCheck, label: 'Onboarding da Equipe', path: '/onboarding' },
-  { icon: GraduationCap, label: 'Cursos / Treinamentos', path: '/courses' },
-  { icon: Award, label: 'Certificados', path: '/certificates' },
-  { icon: UserCheck, label: 'Avaliações', path: '/evaluation' },
-  // { icon: Users, label: 'Mentorias', path: '/mentoring' },
-  { icon: Brain, label: 'Teste Comportamental', path: '/assessment' },
-  { icon: ClipboardList, label: 'PDI', path: '/pdis' },
-  { icon: Grid3x3, label: 'Matriz 9Box', path: '/nine-box' },
-  { icon: UserPlus, label: 'Minha Equipe', path: '/employees' },
+const managerNavItems: SidebarNavItem[] = [
+  { kind: 'leaf', icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
+  { kind: 'leaf', icon: GraduationCap, label: 'Cursos / Treinamentos', path: '/courses' },
+  { kind: 'leaf', icon: Award, label: 'Certificados', path: '/certificates' },
+  { kind: 'evaluations', icon: UserCheck, sectionLabel: 'Avaliações' },
+  { kind: 'leaf', icon: Brain, label: 'Teste Comportamental', path: '/assessment' },
+  { kind: 'leaf', icon: ClipboardList, label: 'PDI', path: '/pdis' },
+  { kind: 'leaf', icon: Grid3x3, label: 'Matriz 9Box', path: '/nine-box' },
+  { kind: 'leaf', icon: UserPlus, label: 'Minha Equipe', path: '/employees' },
 ];
 
-const hrNavItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-  // { icon: ClipboardCheck, label: 'Onboarding', path: '/onboarding' },
-  { icon: GraduationCap, label: 'Cursos / Treinamentos', path: '/courses' },
-  { icon: UserCheck, label: 'Avaliações', path: '/evaluation' },
-  // { icon: Users, label: 'Mentorias', path: '/mentoring' },
-  { icon: Brain, label: 'Teste Comportamental', path: '/assessment' },
-  { icon: ClipboardList, label: 'PDI', path: '/pdis' },
-  { icon: Grid3x3, label: 'Matriz 9Box', path: '/nine-box' },
-  { icon: UserPlus, label: 'Colaboradores', path: '/employees' },
+const hrNavItems: SidebarNavItem[] = [
+  { kind: 'leaf', icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
+  { kind: 'leaf', icon: GraduationCap, label: 'Cursos / Treinamentos', path: '/courses' },
+  { kind: 'evaluations', icon: UserCheck, sectionLabel: 'Avaliações' },
+  { kind: 'leaf', icon: Brain, label: 'Teste Comportamental', path: '/assessment' },
+  { kind: 'leaf', icon: ClipboardList, label: 'PDI', path: '/pdis' },
+  { kind: 'leaf', icon: Grid3x3, label: 'Matriz 9Box', path: '/nine-box' },
+  { kind: 'leaf', icon: UserPlus, label: 'Colaboradores', path: '/employees' },
 ];
 
 const comingSoonConfig = {
@@ -74,10 +85,89 @@ const comingSoonNavItems = [
   { id: 'mentoria' as const, icon: Users, label: 'Mentoria' },
 ];
 
-function getNavItems(role: string) {
+function getNavItems(role: string): SidebarNavItem[] {
   if (role === 'hr') return hrNavItems;
   if (role === 'manager') return managerNavItems;
   return employeeNavItems;
+}
+
+const EVALUATION_SUBLINKS = [
+  { label: 'Feedback', path: '/evaluation' },
+  { label: 'Objetivos', path: '/evaluation/objectives' },
+] as const;
+
+function isEvaluationsPath(pathname: string): boolean {
+  return pathname === '/evaluation' || pathname.startsWith('/evaluation/');
+}
+
+function EvaluationsNavGroup({ icon: Icon, sectionLabel }: { icon: LucideIcon; sectionLabel: string }) {
+  const location = useLocation();
+  const inSection = isEvaluationsPath(location.pathname);
+  const [isOpen, setIsOpen] = useState(inSection);
+
+  useEffect(() => {
+    if (inSection) setIsOpen(true);
+  }, [inSection]);
+
+  const isChildActive = (path: string) =>
+    path === '/evaluation'
+      ? location.pathname === '/evaluation' || location.pathname === '/evaluation/'
+      : location.pathname === path || location.pathname.startsWith(`${path}/`);
+
+  const isParentActive = EVALUATION_SUBLINKS.some((s) => isChildActive(s.path));
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen} className="space-y-1">
+      <CollapsibleTrigger
+        type="button"
+        className={cn(
+          'w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group text-left',
+          isParentActive
+            ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-lg'
+            : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
+        )}
+        aria-expanded={isOpen}
+      >
+        <Icon
+          className={cn(
+            'w-5 h-5 shrink-0 transition-transform duration-200',
+            isParentActive ? '' : 'group-hover:scale-110'
+          )}
+        />
+        <span className="font-medium text-sm flex-1 min-w-0">{sectionLabel}</span>
+        <ChevronDown
+          className={cn(
+            'w-4 h-4 shrink-0 transition-transform duration-200',
+            isOpen ? 'rotate-180' : '',
+            isParentActive ? 'text-sidebar-primary-foreground' : ''
+          )}
+          aria-hidden
+        />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="space-y-0.5 pl-3 pb-1">
+        {EVALUATION_SUBLINKS.map((sub) => {
+          const active = isChildActive(sub.path);
+          return (
+            <Link
+              key={sub.path}
+              to={sub.path}
+              className={cn(
+                'flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm transition-colors',
+                active
+                  ? 'bg-sidebar-accent text-sidebar-foreground font-medium'
+                  : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground'
+              )}
+            >
+              <span className="w-3.5 shrink-0 flex justify-center" aria-hidden>
+                {active ? <ChevronRight className="w-3.5 h-3.5" /> : null}
+              </span>
+              <span>{sub.label}</span>
+            </Link>
+          );
+        })}
+      </CollapsibleContent>
+    </Collapsible>
+  );
 }
 
 function getRoleLabel(role: string) {
@@ -147,6 +237,15 @@ function SidebarContent() {
       {/* Navigation */}
       <nav className="flex-1 p-3 mt-4 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
+          if (item.kind === 'evaluations') {
+            return (
+              <EvaluationsNavGroup
+                key="evaluations"
+                icon={item.icon}
+                sectionLabel={item.sectionLabel}
+              />
+            );
+          }
           const isActive = location.pathname === item.path;
           return (
             <Link
