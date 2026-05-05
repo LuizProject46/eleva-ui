@@ -1,7 +1,7 @@
 import type { TenantEvaluationPeriod } from '@/types/evaluationPeriod';
 
 export type NineBoxAxisLevel = 'low' | 'medium' | 'high';
-export type NineBoxDataMode = 'legacy' | 'competency';
+export type NineBoxDataMode = 'legacy' | 'competency' | 'performance';
 export type NineBoxSnapshotStatus = 'complete' | 'incomplete';
 
 export interface NineBoxProfileSnippet {
@@ -26,9 +26,33 @@ export interface NineBoxMatrixRow {
   period_id?: string | null;
   performance_score?: number | null;
   potential_score?: number | null;
+  objectives_score?: number | null;
+  competencies_score?: number | null;
+  evaluation_year?: number | null;
   position?: string | null;
   snapshot_status?: NineBoxSnapshotStatus;
   missing_competencies?: string[];
+}
+
+export interface NineBoxConfigRow {
+  id: string;
+  tenant_id: string;
+  evaluation_year: number;
+  objectives_low_max: number;
+  objectives_medium_max: number;
+  competencies_low_max: number;
+  competencies_medium_max: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NineBoxConfigUpsertInput {
+  tenant_id: string;
+  evaluation_year: number;
+  objectives_low_max: number;
+  objectives_medium_max: number;
+  competencies_low_max: number;
+  competencies_medium_max: number;
 }
 
 export interface NineBoxEvaluationSummary {

@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import { isHexColor, normalizeHex } from '@/lib/branding';
 import { ImageUpload } from '@/components/settings/ImageUpload';
 import { PeriodicityConfig } from '@/components/settings/PeriodicityConfig';
+import { NineBoxConfig } from '@/components/settings/NineBoxConfig';
 import { UserAvatar } from '@/components/UserAvatar';
 import { uploadAvatar, validateAvatarFile } from '@/services/avatarService';
 import { supabase } from '@/lib/supabase';
@@ -569,6 +570,26 @@ export default function Settings() {
                   </Button>
                 </div>
               </div>
+            </div>
+          )}
+
+          {showBrandSettings && tenant?.id && (
+            <div className="card-elevated p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <CalendarClock className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h2 className="font-display font-semibold text-foreground">
+                    Configuração da Nine-Box
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    Defina o ano da avaliação anual e os thresholds dos eixos de Objetivos e
+                    Competências.
+                  </p>
+                </div>
+              </div>
+              <NineBoxConfig tenantId={tenant.id} />
             </div>
           )}
 

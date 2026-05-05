@@ -6,7 +6,7 @@ import type { NineBoxDataMode, NineBoxMatrixRow } from '@/types/nineBox';
 interface UseNineBoxMatrixDataParams {
   tenantId: string | undefined;
   canAccess: boolean;
-  periodId: string | null;
+  year: number;
 }
 
 interface UseNineBoxMatrixDataResult {
@@ -21,15 +21,15 @@ interface UseNineBoxMatrixDataResult {
 export function useNineBoxMatrixData({
   tenantId,
   canAccess,
-  periodId,
+  year,
 }: UseNineBoxMatrixDataParams): UseNineBoxMatrixDataResult {
   const query = useQuery({
-    queryKey: ['nine-box-matrix-data', tenantId, periodId ?? 'legacy'],
-    queryFn: () => listNineBoxMatrixData(tenantId!, periodId),
+    queryKey: ['nine-box-matrix-data', tenantId, year],
+    queryFn: () => listNineBoxMatrixData(tenantId!, year),
     enabled: Boolean(tenantId && canAccess),
   });
 
-  const mode: NineBoxDataMode = query.data?.mode ?? 'legacy';
+  const mode: NineBoxDataMode = query.data?.mode ?? 'performance';
   const rows = query.data?.rows ?? [];
   const periodName = query.data?.period?.name ?? null;
 

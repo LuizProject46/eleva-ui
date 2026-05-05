@@ -1,7 +1,8 @@
-import { isEvaluationPeriodCompetencyNineBox } from '@/lib/nineBoxCompetencyPeriod';
 import { supabase } from '@/lib/supabase';
 import { listTenantEvaluationPeriods } from '@/services/evaluationPeriodsService';
 import type {
+  NineBoxConfigRow,
+  NineBoxConfigUpsertInput,
   NineBoxEvaluationPeriod,
   NineBoxMatrixDataResponse,
   NineBoxEvaluationSummary,
@@ -43,6 +44,26 @@ interface CompetencyMatrixRpcRow {
   missing_competencies: string[] | null;
   period_id: string | null;
   profiles: NineBoxMatrixRow['profiles'] | NineBoxMatrixRow['profiles'][] | null;
+}
+
+interface PerformanceMatrixRpcRow {
+  id: string;
+  employee_id: string;
+  performance: NineBoxMatrixRow['performance'];
+  potential: NineBoxMatrixRow['potential'];
+  notes: string | null;
+  evaluated_by: string | null;
+  updated_at: string;
+  performance_score: number | null;
+  potential_score: number | null;
+  box_position: string | null;
+  snapshot_status: 'complete' | 'incomplete';
+  missing_competencies: string[] | null;
+  period_id: string | null;
+  profiles: NineBoxMatrixRow['profiles'] | NineBoxMatrixRow['profiles'][] | null;
+  objectives_score: number | null;
+  competencies_score: number | null;
+  evaluation_year: number | null;
 }
 
 function normalizeProfileEmbed(
@@ -115,22 +136,58 @@ export async function listCompetencyNineBoxMatrixRows(
 
 export async function listNineBoxMatrixData(
   tenantId: string,
-  periodId: string | null
+  year: number
 ): Promise<NineBoxMatrixDataResponse> {
-  if (!periodId) {
-    const rows = await listNineBoxMatrixRows(tenantId);
-    return { mode: 'legacy', period: null, rows };
-  }
+  const { data, error } = await supabase.rpc('get_performance_nine_box_matrix', {
+    p_tenant_id: tenantId,
+    p_year: year,
+  });
+  if (error) throw error;
 
-  const evaluationPeriods = await listTenantEvaluationPeriods(tenantId, { order: 'desc' });
-  const period = evaluationPeriods.find((p) => p.id === periodId) ?? null;
-  if (!period || !isEvaluationPeriodCompetencyNineBox(period, evaluationPeriods)) {
-    const rows = await listNineBoxMatrixRows(tenantId);
-    return { mode: 'legacy', period, rows };
-  }
+  const rows = ((data ?? []) as PerformanceMatrixRpcRow[]).map((row) => {
+    const normalized = normalizeProfileEmbed(row as unknown as NineBoxMatrixRow);
+    return {
+      ...normalized,
+      source_mode: 'performance',
+      period_id: row.period_id,
+      performance_score: row.performance_score,
+      potential_score: row.potential_score,
+      objectives_score: row.objectives_score,
+      competencies_score: row.competencies_score,
+      evaluation_year: row.evaluation_year,
+      position: row.box_position,
+      snapshot_status: row.snapshot_status,
+      missing_competencies: row.missing_competencies ?? [],
+    };
+  });
 
-  const rows = await listCompetencyNineBoxMatrixRows(tenantId, periodId);
-  return { mode: 'competency', period, rows };
+  return { mode: 'performance', period: null, rows };
+}
+
+export async function getNineBoxConfig(tenantId: string): Promise<NineBoxConfigRow | null> {
+  const { data, error } = await supabase
+    .from('nine_box_config')
+    .select(
+      'id, tenant_id, evaluation_year, objectives_low_max, objectives_medium_max, competencies_low_max, competencies_medium_max, created_at, updated_at'
+    )
+    .eq('tenant_id', tenantId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return (data as NineBoxConfigRow | null) ?? null;
+}
+
+export async function upsertNineBoxConfig(input: NineBoxConfigUpsertInput): Promise<NineBoxConfigRow> {
+  const { data, error } = await supabase
+    .from('nine_box_config')
+    .upsert(input, { onConflict: 'tenant_id' })
+    .select(
+      'id, tenant_id, evaluation_year, objectives_low_max, objectives_medium_max, competencies_low_max, competencies_medium_max, created_at, updated_at'
+    )
+    .single();
+
+  if (error) throw error;
+  return data as NineBoxConfigRow;
 }
 
 export async function getNineBoxEvaluationByEmployee(
