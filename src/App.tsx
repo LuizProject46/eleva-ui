@@ -30,6 +30,7 @@ import Dashboard from "@/pages/Dashboard";
 import Onboarding from "@/pages/Onboarding";
 import Evaluation from "@/pages/Evaluation";
 import { ObjectivesEvaluationPage } from "@/pages/evaluation/ObjectivesEvaluationPage";
+import { CompetenciesEvaluationPage } from "@/pages/evaluation/CompetenciesEvaluationPage";
 import Mentoring from "@/pages/Mentoring";
 import Assessment from "@/pages/Assessment";
 import Colaboradores from "@/pages/Colaboradores";
@@ -100,6 +101,7 @@ function getPageTitle(pathname: string): string {
   if (pathname.startsWith("/employees/") && pathname !== "/employees") return "Perfil";
   if (pathname.startsWith("/pdis/") && pathname !== "/pdis") return "PDI";
   if (pathname.startsWith("/evaluation/objectives")) return "Objetivos";
+  if (pathname.startsWith("/evaluation/competencies")) return "Competências";
   if (pathname.startsWith("/courses/assignment/")) {
     if (pathname.includes("/questionnaire")) return "Questionário";
     if (pathname.includes("/start")) return "Curso";
@@ -161,6 +163,10 @@ function AppRoutes() {
       <Route
         path="/evaluation/objectives"
         element={<ProtectedRoute><ObjectivesEvaluationPage /></ProtectedRoute>}
+      />
+      <Route
+        path="/evaluation/competencies"
+        element={<ProtectedRoute><CompetenciesEvaluationPage /></ProtectedRoute>}
       />
       <Route path="/mentoring" element={<ProtectedRoute><Mentoring /></ProtectedRoute>} />
       <Route path="/assessment" element={<ProtectedRoute><Assessment /></ProtectedRoute>} />

@@ -94,6 +94,7 @@ function getNavItems(role: string): SidebarNavItem[] {
 const EVALUATION_SUBLINKS = [
   { label: 'Feedback', path: '/evaluation' },
   { label: 'Objetivos', path: '/evaluation/objectives' },
+  { label: 'Competências', path: '/evaluation/competencies' },
 ] as const;
 
 function isEvaluationsPath(pathname: string): boolean {
