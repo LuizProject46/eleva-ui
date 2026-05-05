@@ -236,7 +236,7 @@ function SidebarContent() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-3 mt-4 space-y-1 overflow-y-auto">
+      <nav className="sidebar-scrollbar flex-1 p-3 pr-2 mt-4 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
           if (item.kind === 'evaluations') {
             return (

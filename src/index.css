@@ -164,6 +164,29 @@
 }
 
 @layer utilities {
+  .sidebar-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--sidebar-foreground) / 0.26) transparent;
+    scrollbar-gutter: stable;
+  }
+
+  .sidebar-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .sidebar-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .sidebar-scrollbar::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--sidebar-foreground) / 0.2);
+    border-radius: 9999px;
+  }
+
+  .sidebar-scrollbar:hover::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--sidebar-foreground) / 0.34);
+  }
+
   .animate-fade-in {
     animation: fadeIn 0.5s ease-out forwards;
   }
